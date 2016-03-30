@@ -1,0 +1,33 @@
+Metadata-Version: 1.1
+Name: TonsleyLED
+Version: 0.0
+Summary: TonsleyLED
+Home-page: UNKNOWN
+Author: UNKNOWN
+Author-email: UNKNOWN
+License: UNKNOWN
+Description: TonsleyLED README
+        ==================
+        
+        
+        A simple webapp with login to allow you to control the schedule of the led sign.
+        
+        Running
+        -------
+        Make sure you have environment variables set for the database:
+        
+        * DBUSER, DBNAME, DBHOST, DBPASSWORD
+        
+        Then run the app using  `pserve production.ini --reload`
+        
+        0.0
+        ---
+        
+        -  Initial version
+        
+Keywords: web wsgi bfg pylons pyramid
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: Framework :: Pyramid
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application

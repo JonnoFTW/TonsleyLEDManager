@@ -1,0 +1,7 @@
+pluck
+pymysql
+sqlalchemy
+numpy
+freetype-py
+pyramid
+pyramid_mako
