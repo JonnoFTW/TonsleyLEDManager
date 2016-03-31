@@ -151,7 +151,7 @@ class Glyph(object):
 class Font(object):
     def __init__(self, filename, size):
         import os
-        if not os._exists(filename):
+        if not os.path.exists(filename):
             filename = '../'+filename
         self.face = freetype.Face(filename)
         self.face.set_pixel_sizes(0, size)

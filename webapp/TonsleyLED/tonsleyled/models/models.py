@@ -2,6 +2,7 @@ from sqlalchemy import (
     Column,
     Integer,
     Text,
+    text,
     String,
     Date,
     Time,
@@ -75,28 +76,58 @@ class ABase(DBase):
         return json.dumps(self._as_dict())
 
 
-class LedSchedule(Base):
-    __tablename__ = 'led_schedule'
+class LedGroup(ABase):
+    __tablename__ = 'led_group'
 
     id = Column(Integer, primary_key=True)
     name = Column(String(45), nullable=False)
-    length = Column(Integer, nullable=False)
+    time_from = Column(Time)
+    time_to = Column(Time)
+    days_of_week = Column(String(7))
+    repeats = Column(Integer)
+    enabled = Column(Integer)
+    default = Column(Integer)
+    date_from = Column(Date)
+
+
+class LedGroupUser(ABase):
+    __tablename__ = 'led_group_users'
+
+    led_group_id = Column(ForeignKey(u'led_group.id'), primary_key=True, nullable=False, index=True)
+    led_user_id = Column(ForeignKey(u'led_user.id'), primary_key=True, nullable=False, index=True)
+    access_level = Column(Integer, nullable=False, server_default=text("'0'"))
+
+    led_group = relationship(u'LedGroup')
+    led_user = relationship(u'LedUser')
+
+
+class LedPlugin(ABase):
+    __tablename__ = 'led_plugin'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(45), nullable=False)
     code = Column(Text, nullable=False)
     user_id = Column(ForeignKey(u'led_user.id'), index=True)
-    position = Column(Integer)
-    enabled = Column(Boolean, server_default="'1")
-    time_from = Column(Time, nullable=True)
-    time_to = Column(Time, nullable=True)
-    days_of_week = Column(Integer, nullable=True)
-    repeats = Column(Integer, nullable=True)
-    date_from = Column(Date, nullable=True)
+
     user = relationship(u'LedUser')
 
 
-class LedUser(Base):
+class LedSchedule(ABase):
+    __tablename__ = 'led_schedule'
+
+    led_group_id = Column(ForeignKey(u'led_group.id'), primary_key=True, nullable=False, index=True)
+    led_plugin_id = Column(ForeignKey(u'led_plugin.id'), primary_key=True, nullable=False, index=True)
+    duration = Column(Integer)
+    enabled = Column(Integer)
+    position = Column(Integer)
+
+    led_group = relationship(u'LedGroup')
+    led_plugin = relationship(u'LedPlugin')
+
+
+class LedUser(ABase):
     __tablename__ = 'led_user'
 
     id = Column(Integer, primary_key=True)
     email = Column(String(128), nullable=False)
-    password = Column(String(128), nullable=False)
-    access_level = Column(Integer, nullable=False, server_default="'0'")
+    access_level = Column(Integer, nullable=False, server_default=text("'0'"))

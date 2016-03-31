@@ -219,11 +219,11 @@ while True:
             schedule = test_sched()
         last_schedule_update = now
     if now >= current_plugin_end:
-        try:
+        # try:
             plugin, current_plugin_end = load_next_plugin()
-        except:
-            print "[x] Failed to load plugin"
-            continue
+        # except Exception as e:
+        #     print "[x] Failed to load plugin:", e
+        #     continue
     if plugin is not None:
         try:
             pixels = plugin.run()

@@ -6,7 +6,7 @@ class Runner:
     def __init__(self, dims):
         self.dims = dims
 
-        fnt = Font('../open_sans.ttf', 16)
+        fnt = Font('open_sans.ttf', 16)
         # import numpy as np
         self.np = np
         message = self.get_text()

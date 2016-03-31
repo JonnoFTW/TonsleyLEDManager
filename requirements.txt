@@ -1,3 +1,7 @@
+validate_email
+transaction
+requests
+bs4
 pluck
 pymysql
 sqlalchemy
@@ -5,3 +9,4 @@ numpy
 freetype-py
 pyramid
 pyramid_mako
+python-ldap
