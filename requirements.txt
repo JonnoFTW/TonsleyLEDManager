@@ -9,4 +9,4 @@ numpy
 freetype-py
 pyramid
 pyramid_mako
-python-ldap
+ldap3

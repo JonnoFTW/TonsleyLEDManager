@@ -2,7 +2,7 @@ import random
 import re
 import validate_email
 from pluck import pluck
-# import ldap
+from ldap3 import Server, Connection, ALL, NTLM
 from pyramid.security import remember
 from pyramid.view import view_config, forbidden_view_config
 
@@ -242,30 +242,40 @@ def check_credentials(username, password):
     """Verifies credentials for username and password.
     Returns None on success or a string describing the error on failure
     # Adapt to your needs
+
     """
-    LDAP_SERVER = 'ldap://ad.flinders.edu.au'
-    # fully qualified AD user name
     LDAP_USERNAME = '%s@flinders.edu.au' % username
-    # your password
     LDAP_PASSWORD = password
-    base_dn = 'DC=xxx,DC=xxx'
-    ldap_filter = 'userPrincipalName=%s@xxx.xx' % username
-    attrs = ['memberOf']
+    server = Server('ad.flinders.edu.au', use_ssl=True)
+
+    connection = Connection(server, user=LDAP_USERNAME, password=LDAP_PASSWORD, authentication=NTLM)
     try:
-        # build a client
-        ldap_client = ldap.initialize(LDAP_SERVER)
-        # perform a synchronous bind
-        ldap_client.set_option(ldap.OPT_REFERRALS, 0)
-        ldap_client.simple_bind_s(LDAP_USERNAME, LDAP_PASSWORD)
-    except ldap.INVALID_CREDENTIALS:
-        ldap_client.unbind()
+        connection.bind()
+        return True
+    except:
         return False
-    except ldap.SERVER_DOWN:
-        raise exc.HTTPInternalServerError('Authentication server not available')
-    # all is well
-    # get all user groups and store it in cerrypy session for future use
-    ldap_client.unbind()
-    return None
+    # fully qualified AD user name
+
+    # your password
+
+    # base_dn = 'DC=xxx,DC=xxx'
+    # ldap_filter = 'userPrincipalName=%s@xxx.xx' % username
+    # attrs = ['memberOf']
+    # try:
+    #     # build a client
+    #     ldap_client = ldap.initialize(LDAP_SERVER)
+    #     # perform a synchronous bind
+    #     ldap_client.set_option(ldap.OPT_REFERRALS, 0)
+    #     ldap_client.simple_bind_s(LDAP_USERNAME, LDAP_PASSWORD)
+    # except ldap.INVALID_CREDENTIALS:
+    #     ldap_client.unbind()
+    #     return False
+    # except ldap.SERVER_DOWN:
+    #     raise exc.HTTPInternalServerError('Authentication server not available')
+    # # all is well
+    # # get all user groups and store it in cerrypy session for future use
+    # ldap_client.unbind()
+    # return None
 
 
 """
@@ -287,7 +297,7 @@ def login_view(request):
         email = request.params['email']
         password = request.params['password']
         user = request.db_session.query(LedUser).filter(LedUser.email == email).first()
-        if user and True:# check_credentials(email, password):
+        if user and check_credentials(email, password):
             print(email, "successfully logged in")
             headers = remember(request, user.id)
             return exc.HTTPFound(location=came_from, headers=headers)
