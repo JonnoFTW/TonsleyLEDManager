@@ -1,6 +1,5 @@
-import random
 import re
-import validate_email
+from collections import defaultdict
 from pluck import pluck
 from ldap3 import Server, Connection, ALL, NTLM
 from pyramid.security import remember
@@ -9,7 +8,8 @@ from pyramid.view import view_config, forbidden_view_config
 from pyramid.view import view_config, forbidden_view_config, notfound_view_config
 from pyramid.security import remember, forget, Authenticated, Allow
 import pyramid.httpexceptions as exc
-from sqlalchemy import and_, update
+from sqlalchemy import and_, update, exc as sql_exc
+
 import datetime
 from models import LedSchedule, LedUser, LedGroup, LedPlugin, LedGroupUser
 
@@ -129,7 +129,17 @@ def update_plugin(request):
         }
 
 
+def post_to_dict(post):
+    out = defaultdict(defaultdict)
 
+    for id, data in post.items():
+        if data.lower() == 'true':
+            data = True
+        elif data.lower() == 'false':
+            data = False
+        matches = re.match(r'(.*)\[(.*)]', id)
+        out[matches.group(1)][matches.group(2)] = data
+    return out
 
 """
 Update the Schedule of a group
@@ -138,10 +148,18 @@ Update the Schedule of a group
 @view_config(route_name='schedule_update', renderer='json', request_method='POST')
 @authenticate
 def update_schedule(request):
-    # post args should be a mapping of plugin_id -> position
-    for plugin_id, position in request.POST.items():
-        plugin = request.db_session.query(LedSchedule).filter(LedSchedule.id == plugin_id).first()
-        plugin.position = position
+    # post args should be a mapping of plugin_id -> [position, enabled, duration]
+    group_id = request.matchdict['group_id']
+    print request.POST
+    for plugin_id, data in post_to_dict(request.POST).items():
+
+        plugin = request.db_session.query(LedSchedule).filter(
+            and_(LedSchedule.led_plugin_id == plugin_id,
+                 LedSchedule.led_group_id == group_id)).first()
+        plugin.position = data['position']
+        plugin.enabled = data['enabled']
+        plugin.duration = data['duration']
+        plugin.message = data['message']
     return {'message': 'Done'}
 
 
@@ -150,7 +168,7 @@ Manage A Group
 """
 @view_config(route_name='group_update', renderer='json', request_method='POST')
 @authenticate
-def update_plugin(request):
+def update_group_plugins(request):
     # make sure the plugin id exists
     plugin_id = request.matchdict['plugin_id']
     plugin = request.db_session.query(LedPlugin).filter(LedPlugin.id == plugin_id).first()
@@ -208,6 +226,96 @@ def update_plugin(request):
         return {'success': True}
 
 
+def can_modify_group(request, gid, raise_exc=True):
+    user = get_user(request)
+    group_user = request.db_session.query(LedGroupUser).filter(and_(
+        LedGroupUser.led_group_id == gid,
+        LedGroupUser.led_user == user)).first()
+    if group_user is None or 2 not in [user.access_level, group_user.access_level]:
+        if raise_exc:
+            raise exc.HTTPForbidden("You can't modify this group")
+        return False
+    return True
+
+
+
+@view_config(route_name='group_plugins_delete', request_method='POST')
+@authenticate
+def delete_group_plugin(request):
+    gid = request.matchdict['group_id']
+    can_modify_group(request, gid)
+    plugin_id = request.POST['plugin_id']
+    request.db_session.query(LedSchedule).filter(and_(LedSchedule.led_group_id == gid,
+                                                       LedSchedule.led_plugin_id == plugin_id)).delete()
+    return exc.HTTPFound(location='/group/' + gid)
+
+@view_config(route_name='group_plugins_add', request_method='POST')
+@authenticate
+def add_group_plugin(request):
+    # make sure the users are in the group:
+    # only a site admin or group admin can do this
+
+    gid = request.matchdict['group_id']
+    can_modify_group(request, gid)
+    plugins = request.POST.get('plugins', None)
+    print request.POST.values()
+    if plugins is None:
+        raise exc.HTTPBadRequest('Please specify plugins to add to the schedule')
+    for plugin in request.POST.values():
+        scheduled_plugin = LedSchedule(led_group_id=gid, led_plugin_id=int(plugin), duration=30, enabled=True, position=9)
+        try:
+            request.db_session.add(scheduled_plugin)
+        except sql_exc.DatabaseError as e:
+            print scheduled_plugin, "already in scheduled"
+    return exc.HTTPFound(location='/group/' + gid)
+
+
+@view_config(route_name='group_update_user_level', request_method='POST')
+@authenticate
+def update_group_user_level(request):
+    gid = request.matchdict['group_id']
+    can_modify_group(request, gid)
+    user_id = request.POST['user_id']
+    access_level = int(request.POST['access_level'])
+    if access_level in [0, 2]:
+        user = request.db_session.query(LedGroupUser).filter(
+            and_(LedGroupUser.led_group_id == gid,
+                 LedGroupUser.led_user_id == user_id)).first().access_level = access_level
+    return exc.HTTPFound(location='/group/'+gid)
+
+
+@view_config(route_name='group_delete_user', request_method='POST')
+@authenticate
+def delete_group_user(request):
+    gid = request.matchdict['group_id']
+    can_modify_group(request, gid)
+    user_id = request.POST['user_id']
+    request.db_session.query(LedGroupUser).filter(and_(LedGroupUser.led_group_id == gid,
+                                                       LedGroupUser.led_user_id == user_id)).delete()
+    return exc.HTTPFound(location='/group/' + gid)
+
+
+@view_config(route_name='group_update_users', request_method='POST')
+@authenticate
+def add_group_users(request):
+    # make sure the users are in the group:
+    # only a site admin or group admin can do this
+
+    gid = request.matchdict['group_id']
+    can_modify_group(request, gid)
+    users = request.POST.get('users', None)
+    print request.POST
+    if users is None:
+        raise exc.HTTPBadRequest('Please specify users to add to the group')
+    for user in users.values():
+        group_user = LedGroupUser(led_group_id=gid, led_user_id=user)
+        try:
+            request.db_session.add(group_user)
+        except sql_exc.DatabaseError as e:
+            print group_user, "already in group"
+    return exc.HTTPFound(location='/group/' + gid)
+
+
 @view_config(route_name='group', renderer='templates/group_list.mako', request_method='GET')
 @authenticate
 def list_groups(request):
@@ -230,11 +338,18 @@ def show_group(request):
     # admin will see all groups
     group = request.db_session.query(LedGroup).filter(LedGroup.id == request.matchdict['group_id']).first()
     users = request.db_session.query(LedGroupUser).filter(LedGroupUser.led_group == group).all()
-    schedule = request.db_session.query(LedSchedule).filter(LedSchedule.led_group == group).all()
+    schedule = request.db_session.query(LedSchedule).filter(LedSchedule.led_group == group).order_by(LedSchedule.position.asc()).all()
+    subquery = request.db_session.query(LedGroupUser.led_user_id).filter(LedGroupUser.led_group == group)
+    other_users = request.db_session.query(LedUser).filter(~LedUser.id.in_(subquery))
+    subquery = request.db_session.query(LedSchedule.led_plugin_id).filter(LedSchedule.led_group == group)
+    other_plugins = request.db_session.query(LedPlugin).filter(~LedPlugin.id.in_(subquery))
     return {
         'group': group,
         'users': users,
-        'schedule': schedule
+        'schedule': schedule,
+        'other_users': other_users,
+        'other_plugins': other_plugins,
+        'group_admin': can_modify_group(request, group.id, False)
     }
 
 
@@ -244,38 +359,15 @@ def check_credentials(username, password):
     # Adapt to your needs
 
     """
-    LDAP_USERNAME = '%s@flinders.edu.au' % username
-    LDAP_PASSWORD = password
+    LDAP_USERNAME = '\\%s@flinders.edu.au' % username
     server = Server('ad.flinders.edu.au', use_ssl=True)
 
-    connection = Connection(server, user=LDAP_USERNAME, password=LDAP_PASSWORD, authentication=NTLM)
+    connection = Connection(server, user=LDAP_USERNAME, password=password, authentication=NTLM)
     try:
         connection.bind()
         return True
     except:
         return False
-    # fully qualified AD user name
-
-    # your password
-
-    # base_dn = 'DC=xxx,DC=xxx'
-    # ldap_filter = 'userPrincipalName=%s@xxx.xx' % username
-    # attrs = ['memberOf']
-    # try:
-    #     # build a client
-    #     ldap_client = ldap.initialize(LDAP_SERVER)
-    #     # perform a synchronous bind
-    #     ldap_client.set_option(ldap.OPT_REFERRALS, 0)
-    #     ldap_client.simple_bind_s(LDAP_USERNAME, LDAP_PASSWORD)
-    # except ldap.INVALID_CREDENTIALS:
-    #     ldap_client.unbind()
-    #     return False
-    # except ldap.SERVER_DOWN:
-    #     raise exc.HTTPInternalServerError('Authentication server not available')
-    # # all is well
-    # # get all user groups and store it in cerrypy session for future use
-    # ldap_client.unbind()
-    # return None
 
 
 """
@@ -320,23 +412,6 @@ def logout(request):
     return exc.HTTPFound(location='/login', headers=headers)
 
 
-@view_config(route_name='register', renderer='json', request_method='POST')
-def register_post(request):
-    email = request.params.get('email', None)
-    password = request.params.get('password', None)
-    if not (email and password):
-        return {'error': "Please provide a username and email"}
-    user = request.db_session.query(LedUser).filter(LedUser.email == email).first()
-    if user:
-        # user exists
-        return {'error': 'User already exists'}
-    else:
-        # make the user
-        new_user = LedUser(email=email, password=hashlib.sha512(password).hexdigest())
-        request.db_session.add(new_user)
-        return {'success': 'Successfully made an account, please login'}
-
-
 @view_config(route_name='users', renderer='templates/user_list.mako', request_method='GET')
 @admin_only
 @authenticate
@@ -371,15 +446,12 @@ def create_user(request):
     # all users are unnassociated with a particular group by default
     if request.POST.get('emails', None):
         for email in request.POST['emails'].split(','):
-            if not validate_email(email) or not email.endswith('@flinders.edu.au'):
+            if not re.match(r"[^\W\d_]{1,4}\d{4}", email):
                 continue
             user = LedUser(email=email, access_level=0)
             request.db_session.add(user)
     request.db_session.flush()
-    return {
-       'users': request.db_session.query(LedUser).all()
-    }
-
+    return exc.HTTPFound(location='/users')
 
 
 

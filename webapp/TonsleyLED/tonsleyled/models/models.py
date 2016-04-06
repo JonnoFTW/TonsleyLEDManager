@@ -120,6 +120,7 @@ class LedSchedule(ABase):
     duration = Column(Integer)
     enabled = Column(Integer)
     position = Column(Integer)
+    message = Column(Text)
 
     led_group = relationship(u'LedGroup')
     led_plugin = relationship(u'LedPlugin')

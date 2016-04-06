@@ -48,7 +48,6 @@ def main(global_config, **settings):
 
     config.add_route('login', '/login') # post and get
     config.add_route('logout', '/logout')
-    config.add_route('register', '/register')  # post and get
 
     config.add_route('users', '/users')  # get shows list, post adds,
     config.add_route('show_user', '/users/{user_id}')  # get shows, post updates, delete deletes
@@ -62,7 +61,13 @@ def main(global_config, **settings):
     config.add_route('schedule_update', '/schedule/{group_id}')  #post to manage the scheduel of a group
 
     config.add_route('group', '/group')  # post to make, get to list user's groups
-    config.add_route('group_update', '/group/{group_id}')  # get to show
+    config.add_route('group_update',            '/group/{group_id}')  # get to show
+    config.add_route('group_update_users',      '/group/{group_id}/users') # post
+    config.add_route('group_delete_user',       '/group/{group_id}/users/delete')
+    config.add_route('group_update_user_level', '/group/{group_id}/users/level')
+
+    config.add_route('group_plugins_delete',    '/group/{group_id}/plugins/delete')
+    config.add_route('group_plugins_add',       '/group/{group_id}/plugins/add')
 
     config.scan()
     return config.make_wsgi_app()

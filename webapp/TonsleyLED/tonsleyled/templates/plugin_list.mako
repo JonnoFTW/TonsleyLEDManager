@@ -18,7 +18,7 @@
                     <tbody class="searchable rows">
                         % for plugin in plugins:
                             <tr class="clickable-row" data-id="${plugin.id}">
-                                <td>${plugin.name}</td>
+                                <td><a href="">${plugin.name}</a></td>
                                 <td><a href="/users/${plugin.user_id}">${plugin.user.email.split('@')[0]}</a></td>
                                 <td><button data-id="${plugin.id}" class="save btn btn-primary">Save</button></td>
                             </tr>

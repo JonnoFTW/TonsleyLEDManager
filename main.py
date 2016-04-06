@@ -83,6 +83,21 @@ def test_sched():
         }
     ])
 
+"""
+Only returns the group id of the first schedule that should be running,
+if all else fails, play the default
+"""
+def get_current_schedule(conn):
+    cursor = conn.cursor()
+    sql = """SELECT * FROM led_group  WHERE `default` = 1"""
+    cursor.execute(sql)
+    # schedule will be at row 0
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    else:
+        return row['id']
+
 
 def refresh_schedule():
     """
@@ -123,7 +138,18 @@ def refresh_schedule():
         print "Using default schedule"
         return test_sched()
     cursor = connection.cursor()
-    sql = "SELECT * FROM led_schedule WHERE `enabled` = 1 ORDER BY `position` DESC "
+    # need to fix this so that it loads the right schedule
+    #
+    group_id = get_current_schedule(connection)
+    if group_id is None:
+        return test_sched()
+    sql = """SELECT * FROM led_schedule
+             LEFT OUTER JOIN led_plugin
+             ON led_schedule.led_plugin_id = led_plugin.id
+             WHERE
+              `enabled` = 1 AND
+              `led_group_id` = {}
+             ORDER BY `position` DESC """.format(group_id)
     cursor.execute(sql)
     current_plugin = None
     if len(schedule) > 0:
@@ -162,31 +188,31 @@ def load_next_plugin():
             show_schedule(schedule)
             next = schedule[-1]
 
-            # check if this plugin needs to run right now
-            nowdt = datetime.now()
-            midnight = nowdt.replace(hour=0, minute=0, second=0, microsecond=0)
-            if 'date_from' in next:
-                if next['date_from'] is not None:
-                    if nowdt.date() < next['date_from']:
-                        print next['name'], "Date from not reached yet"
-                        continue
-                    if next['repeats'] is not None:
-                        next_monday = nowdt - timedelta(days=nowdt.weekday())
-                        if (next_monday - next['date_from']).days / 7 > next['repeats']:
-                            print next['name'], "Repeated enough times"
-                            continue
-                if next['time_from'] is not None:
-                    if nowdt.time() < (midnight + next['time_from']).time():
-                        print next['name'], "Not after time from"
-                        continue
-                if next['time_to'] is not None:
-                    if nowdt.time() > (midnight + next['time_to']).time():
-                        print next['name'], "Not before time to"
-                        continue
-                if next['days_of_week'] is not None:
-                    if next['days_of_week'][nowdt.weekday()] == "0":
-                        print next['name'], "Not right day of week"
-                        continue
+            # # check if this plugin needs to run right now
+            # nowdt = datetime.now()
+            # midnight = nowdt.replace(hour=0, minute=0, second=0, microsecond=0)
+            # if 'date_from' in next:
+            #     if next['date_from'] is not None:
+            #         if nowdt.date() < next['date_from']:
+            #             print next['name'], "Date from not reached yet"
+            #             continue
+            #         if next['repeats'] is not None:
+            #             next_monday = nowdt - timedelta(days=nowdt.weekday())
+            #             if (next_monday - next['date_from']).days / 7 > next['repeats']:
+            #                 print next['name'], "Repeated enough times"
+            #                 continue
+            #     if next['time_from'] is not None:
+            #         if nowdt.time() < (midnight + next['time_from']).time():
+            #             print next['name'], "Not after time from"
+            #             continue
+            #     if next['time_to'] is not None:
+            #         if nowdt.time() > (midnight + next['time_to']).time():
+            #             print next['name'], "Not before time to"
+            #             continue
+            #     if next['days_of_week'] is not None:
+            #         if next['days_of_week'][nowdt.weekday()] == "0":
+            #             print next['name'], "Not right day of week"
+            #             continue
 
         except IndexError, e:
             print "No valid plugins could be loaded"
@@ -198,6 +224,8 @@ def load_next_plugin():
             print next, "is not a valid plugin"
             continue
         end = now + next['length']
+        if 'message' in next:
+            return plugin.Runner(board_dimensions, next['message']), end
         return plugin.Runner(board_dimensions), end
 
 

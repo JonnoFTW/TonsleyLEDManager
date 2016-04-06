@@ -35,11 +35,11 @@
                     <i class="fa fa-plus fa-fw"></i> New Users
                 </div>
                 <div class="panel-body">
-                    <form class="form-horizontal" id="new-plugin-form">
+                    <form class="form-horizontal" id="new-plugin-form" method="POST">
                       <div class="form-group">
                         <label for="inputLength" class="col-sm-2 control-label">Emails</label>
                         <div class="col-sm-10">
-                          <textarea class="form-control" id="inputSource" name="emails" placeholder="a@flinders.edu.au,b@flinders.edu.au"></textarea>
+                          <textarea class="form-control" id="inputSource" name="emails" placeholder="fan0001,fami0002"></textarea>
                         </div>
                       </div>
                       <div class="form-group">
