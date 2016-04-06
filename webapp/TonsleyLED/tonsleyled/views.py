@@ -72,6 +72,7 @@ def list_plugins(request):
     return get_all_plugins(request)
 
 
+
 @view_config(route_name='plugin', renderer='templates/plugin_list.mako', request_method='POST')
 @authenticate
 def create_plugin(request):
@@ -104,6 +105,12 @@ def delete_plugin(request):
     return {'msg': 'Deleted'}
 
 
+@view_config(route_name='plugin_update', renderer='templates/plugin_show.mako', request_method='GET')
+def show_plugin(request):
+    return {
+        'plugins': [request.db_session.query(LedPlugin).filter(LedPlugin.id == request.matchdict['plugin_id']).first()]
+    }
+
 
 @view_config(route_name='plugin_update', renderer='json', request_method='POST')
 @authenticate
@@ -121,7 +128,7 @@ def update_plugin(request):
         POST = {k: to_null(v) for k, v in request.POST.items()}
         if POST['code']:
             plugin.code = POST['code']
-        if POST['name']:
+        if 'name' in POST and POST['name']:
             plugin.name = POST['name']
         request.db_session.flush()
         return {
@@ -170,9 +177,9 @@ Manage A Group
 @authenticate
 def update_group_plugins(request):
     # make sure the plugin id exists
-    plugin_id = request.matchdict['plugin_id']
-    plugin = request.db_session.query(LedPlugin).filter(LedPlugin.id == plugin_id).first()
-    if not plugin:
+    group_id = request.matchdict['group_id']
+    group = request.db_session.query(LedGroup).filter(LedGroup.id == group_id).first()
+    if not group:
         raise exc.HTTPBadRequest("No such plugin")
     else:
         def to_null(val):
@@ -190,53 +197,49 @@ def update_group_plugins(request):
         if time_from:
             time_from = datetime.datetime.strptime(time_from, fmt_24)
             time_to = datetime.datetime.strptime(time_to, fmt_24)
-            plugin.time_to = time_to
-            plugin.time_from = time_from
+            group.time_to = time_to
+            group.time_from = time_from
         else:
-            plugin.time_from = None
-            plugin.time_to = None
+            group.time_from = None
+            group.time_to = None
         if POST['date_from']:
             date_from = datetime.datetime.strptime(POST['date_from'], fmt_date)
-            plugin.date_from = date_from
+            group.date_from = date_from
         else:
-            plugin.date_from = None
+            group.date_from = None
         if POST['days']:
             days = POST['days'][:7]
             if not re.match("[0|1]{7}", days):
                 raise exc.HTTPBadRequest("Days must have 7 valid days")
             print "Setting days", days
             if "1" in days:
-                plugin.days_of_week = days
+                group.days_of_week = days
             else:
-                plugin.days_of_week = None
+                group.days_of_week = None
         else:
-            plugin.days_of_week = None
-
-        if POST['code']:
-            plugin.code = POST['code']
+            group.days_of_week = None
         if POST['repeats']:
             repeats = int(POST['repeats'])
-            plugin.repeats = max(0, repeats)
+            group.repeats = max(0, repeats)
         else:
-            plugin.repeats = None
+            group.repeats = None
         if POST['enabled']:
-            plugin.enabled = POST['enabled'] == 'true'
-        if POST['length']:
-            plugin.length = POST['length']
+            group.enabled = POST['enabled'] == 'true'
         return {'success': True}
 
 
 def can_modify_group(request, gid, raise_exc=True):
     user = get_user(request)
+    if user.access_level == 2:
+        return True
     group_user = request.db_session.query(LedGroupUser).filter(and_(
         LedGroupUser.led_group_id == gid,
         LedGroupUser.led_user == user)).first()
-    if group_user is None or 2 not in [user.access_level, group_user.access_level]:
+    if group_user is None or group_user.access_level != 2:
         if raise_exc:
             raise exc.HTTPForbidden("You can't modify this group")
         return False
     return True
-
 
 
 @view_config(route_name='group_plugins_delete', request_method='POST')
@@ -248,6 +251,7 @@ def delete_group_plugin(request):
     request.db_session.query(LedSchedule).filter(and_(LedSchedule.led_group_id == gid,
                                                        LedSchedule.led_plugin_id == plugin_id)).delete()
     return exc.HTTPFound(location='/group/' + gid)
+
 
 @view_config(route_name='group_plugins_add', request_method='POST')
 @authenticate
@@ -307,7 +311,7 @@ def add_group_users(request):
     print request.POST
     if users is None:
         raise exc.HTTPBadRequest('Please specify users to add to the group')
-    for user in users.values():
+    for user in request.POST.values():
         group_user = LedGroupUser(led_group_id=gid, led_user_id=user)
         try:
             request.db_session.add(group_user)
@@ -331,6 +335,22 @@ def list_groups(request):
         'groups': query.all()
     }
 
+
+@view_config(route_name='group', request_method='POST')
+@admin_only
+@authenticate
+def create_group(request):
+    # create a group
+    name = request.POST.get('name', None)
+    if name is None:
+        raise exc.HTTPBadRequest('Please specify a group name')
+    group = LedGroup(name=name, default=False, enabled=False)
+    request.db_session.add(group)
+    request.db_session.flush()
+    print("Made group", group)
+    return exc.HTTPFound(location='/group/'+str(group.id))
+
+
 @view_config(route_name='group_update', renderer='templates/group_show.mako', request_method='GET')
 @authenticate
 def show_group(request):
@@ -351,6 +371,8 @@ def show_group(request):
         'other_plugins': other_plugins,
         'group_admin': can_modify_group(request, group.id, False)
     }
+
+
 
 
 def check_credentials(username, password):

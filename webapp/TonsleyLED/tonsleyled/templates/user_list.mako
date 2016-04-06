@@ -58,8 +58,5 @@
         </div>
     </div>
 </div>
-<script>
-
-</script>
 
 <%include file="footer.html"/>

@@ -38,7 +38,7 @@
                     <tbody id="plugins">
                         % for plugin in schedule:
                             <tr data-plugin-id="${plugin.led_plugin_id}">
-                                <td><a href="/plugins/${plugin.led_plugin.id}">${plugin.led_plugin.name}</a></td>
+                                <td><a href="/plugin/${plugin.led_plugin.id}">${plugin.led_plugin.name}</a></td>
                                 <td><a href="/users/${plugin.led_plugin.user_id}">${plugin.led_plugin.user.email}</a>
                                 </td>
                                 % if group_admin:

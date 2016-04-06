@@ -1,5 +1,14 @@
 <%include file="header.html"/>
+<div class="jumbotron text-center">
+    <div class="container">
+        <h1 class="main-title">
 
+            Tonsley LED Controller</h1>
+        <div class="col-md-12">
+
+        </div>
+    </div>
+</div>
 <div class="container" style="padding-top:50px">
     <div class="row" style="padding-top:20px">
         <div class="col-lg-12">

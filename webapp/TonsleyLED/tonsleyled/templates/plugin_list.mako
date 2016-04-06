@@ -10,7 +10,7 @@
                 <table class="table table-hover table-bordered table-striped sortable" id="node-table">
                     <thead>
                     <tr>
-                        % for i in  ('Name', 'Author', 'Save'):
+                        % for i in  ('Name', 'Author'):
                             <th data-field="${i}">${i}</th>
                         % endfor
                     </tr>
@@ -18,9 +18,8 @@
                     <tbody class="searchable rows">
                         % for plugin in plugins:
                             <tr class="clickable-row" data-id="${plugin.id}">
-                                <td><a href="">${plugin.name}</a></td>
+                                <td><a href="/plugin/${plugin.id}">${plugin.name}</a></td>
                                 <td><a href="/users/${plugin.user_id}">${plugin.user.email.split('@')[0]}</a></td>
-                                <td><button data-id="${plugin.id}" class="save btn btn-primary">Save</button></td>
                             </tr>
                         %endfor
                     </tbody>
@@ -78,7 +77,8 @@
                     <textarea id="code" class="form-control"></textarea>
                 </div>
             </div>
-        </div></div>
+        </div>
+    </div>
 </div>
 <%include file="codemirror.mako"/>
 <%include file="footer.html"/>

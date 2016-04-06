@@ -18,7 +18,7 @@
                     <tbody class="searchable rows">
                         % for plugin in plugins:
                             <tr class="clickable-row" data-id="${plugin.id}">
-                                <td>${plugin.name}</td>
+                                <td><a href="/plugin/${plugin.id}">${plugin.name}</a></td>
                             </tr>
                         %endfor
                     </tbody>
