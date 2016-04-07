@@ -23,11 +23,12 @@ output_shape = (cols, rows, 3)
 disp_size = (cols * 8, rows * 8)
 try:
     pg = True
-    import pygame
+    if pg:
+        import pygame
 
-    pygame.init()
-    size = width, height = board_dimensions
-    screen = pygame.display.set_mode(disp_size)
+        pygame.init()
+        size = width, height = board_dimensions
+        screen = pygame.display.set_mode(disp_size)
 except ImportError:
     pg = False
 
@@ -61,26 +62,26 @@ def test_sched():
             'length': 20,
             'code': code_gol
         },
-        {
-            'name': 'Message',
-            'length': 15,
-            'code': code_message
-        },
-        {
-            'name': 'Maze Runner',
-            'length': 9,
-            'code': code_maze
-        },
-        {
-            'name': 'Rolling Gradients',
-            'length': 15,
-            'code': code_roll
-        },
-        {
-            'name': 'Particle Simulation',
-            'length': 15,
-            'code': code_ball
-        }
+        # {
+        #     'name': 'Message',
+        #     'length': 15,
+        #     'code': code_message
+        # },
+        # {
+        #     'name': 'Maze Runner',
+        #     'length': 9,
+        #     'code': code_maze
+        # },
+        # {
+        #     'name': 'Rolling Gradients',
+        #     'length': 15,
+        #     'code': code_roll
+        # },
+        # {
+        #     'name': 'Particle Simulation',
+        #     'length': 15,
+        #     'code': code_ball
+        # }
     ])
 
 """
@@ -89,14 +90,44 @@ if all else fails, play the default
 """
 def get_current_schedule(conn):
     cursor = conn.cursor()
-    sql = """SELECT * FROM led_group  WHERE `default` = 1"""
+    sql = """SELECT * FROM led_group"""
     cursor.execute(sql)
     # schedule will be at row 0
-    row = cursor.fetchone()
-    if row is None:
-        return None
-    else:
-        return row['id']
+    rows = cursor.fetchall()
+    default = None
+    chosen = None
+    for row in rows:
+        if row['default']:
+            default = row
+        else:
+            ## check if this schedule needs to run right now
+            nowdt = datetime.now()
+            midnight = nowdt.replace(hour=0, minute=0, second=0, microsecond=0)
+            if row['date_from'] is not None:
+                if nowdt.date() < row['date_from']:
+                    # print row['name'], "Date from not reached yet"
+                    continue
+                if row['repeats'] is not None:
+                    row_monday = nowdt - timedelta(days=nowdt.weekday())
+                    if (row_monday - row['date_from']).days / 7 > row['repeats']:
+                        # print row['name'], "Repeated enough times"
+                        continue
+            if row['time_from'] is not None:
+                if nowdt.time() < (midnight + row['time_from']).time():
+                    # print row['name'], "Not after time from"
+                    continue
+            if row['time_to'] is not None:
+                if nowdt.time() > (midnight + row['time_to']).time():
+                    # print row['name'], "Not before time to"
+                    continue
+            if row['days_of_week'] is not None:
+                if row['days_of_week'][nowdt.weekday()] == "0":
+                    # print row['name'], "Not right day of week"
+                    continue
+            chosen = row
+    if chosen is not None:
+        return chosen
+    return default
 
 
 def refresh_schedule():
@@ -121,7 +152,7 @@ def refresh_schedule():
         self.pixels.sort(1)
         return self.pixels
     """
-    print "Updating schedule"
+    # print "Updating schedule"
     db_user = os.environ.get('DBUSER', '<username>')
     db_pass = os.environ.get('DBPASSWORD', '<password>')
     db_host = os.environ.get('DBHOST', '<host>')
@@ -143,13 +174,13 @@ def refresh_schedule():
     group_id = get_current_schedule(connection)
     if group_id is None:
         return test_sched()
-    sql = """SELECT * FROM led_schedule
+    sql = """SELECT * FROM `mack0242`.`led_schedule`
              LEFT OUTER JOIN led_plugin
              ON led_schedule.led_plugin_id = led_plugin.id
              WHERE
               `enabled` = 1 AND
               `led_group_id` = {}
-             ORDER BY `position` DESC """.format(group_id)
+             ORDER BY `position` DESC """.format(group_id['id'])
     cursor.execute(sql)
     current_plugin = None
     if len(schedule) > 0:
@@ -168,13 +199,15 @@ def refresh_schedule():
             schedule.rotate()
     else:
         schedule.rotate(-1)
-    show_schedule(schedule)
+    # show_schedule(schedule)
     return schedule
+
 
 def show_schedule(sc):
     for i in sc:
         print i['name'], i['position']
     print
+
 
 def load_next_plugin():
     """
@@ -184,47 +217,23 @@ def load_next_plugin():
     """
     while True:
         try:
-            schedule.rotate(1)
-            show_schedule(schedule)
             next = schedule[-1]
+            schedule.rotate(1)
 
-            # # check if this plugin needs to run right now
-            # nowdt = datetime.now()
-            # midnight = nowdt.replace(hour=0, minute=0, second=0, microsecond=0)
-            # if 'date_from' in next:
-            #     if next['date_from'] is not None:
-            #         if nowdt.date() < next['date_from']:
-            #             print next['name'], "Date from not reached yet"
-            #             continue
-            #         if next['repeats'] is not None:
-            #             next_monday = nowdt - timedelta(days=nowdt.weekday())
-            #             if (next_monday - next['date_from']).days / 7 > next['repeats']:
-            #                 print next['name'], "Repeated enough times"
-            #                 continue
-            #     if next['time_from'] is not None:
-            #         if nowdt.time() < (midnight + next['time_from']).time():
-            #             print next['name'], "Not after time from"
-            #             continue
-            #     if next['time_to'] is not None:
-            #         if nowdt.time() > (midnight + next['time_to']).time():
-            #             print next['name'], "Not before time to"
-            #             continue
-            #     if next['days_of_week'] is not None:
-            #         if next['days_of_week'][nowdt.weekday()] == "0":
-            #             print next['name'], "Not right day of week"
-            #             continue
-
-        except IndexError, e:
+            show_schedule(schedule)
+            print next['name']
+        except IndexError as e:
             print "No valid plugins could be loaded"
             return None, 0
-        print "Loading plugin:", next['name']
+        # print "Loading plugin:", next['name']
         plugin = imp.new_module("plugin")
         exec next['code'] in plugin.__dict__
         if not hasattr(plugin, 'Runner'):
             print next, "is not a valid plugin"
             continue
-        end = now + next['length']
-        if 'message' in next:
+        end = now + next['duration']
+        if next['message'] is not None:
+            # print "doing messsage"
             return plugin.Runner(board_dimensions, next['message']), end
         return plugin.Runner(board_dimensions), end
 
@@ -267,12 +276,9 @@ while True:
         print "Entering error state"
         pixels = error_pixels
 
-        time.sleep(10)
 
-        # for row in pixels:
-        #     client.put_pixels(pixels, 0)
-        # if client.put(pixels, channel=0):
-        #     print "Sent"
+        for row in pixels:
+            client.put_pixels(pixels, 0)
 
     if pg:
         for e in pygame.event.get():

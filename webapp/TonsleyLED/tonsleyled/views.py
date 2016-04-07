@@ -166,7 +166,10 @@ def update_schedule(request):
         plugin.position = data['position']
         plugin.enabled = data['enabled']
         plugin.duration = data['duration']
-        plugin.message = data['message']
+        if 'message' in data:
+            plugin.message = data['message']
+        else:
+            plugin.message = None
     return {'message': 'Done'}
 
 
@@ -308,7 +311,7 @@ def add_group_users(request):
     gid = request.matchdict['group_id']
     can_modify_group(request, gid)
     users = request.POST.get('users', None)
-    print request.POST
+    # print request.POST
     if users is None:
         raise exc.HTTPBadRequest('Please specify users to add to the group')
     for user in request.POST.values():

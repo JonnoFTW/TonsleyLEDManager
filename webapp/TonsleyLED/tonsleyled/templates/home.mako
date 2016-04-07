@@ -10,18 +10,30 @@
     </div>
 </div>
 <div class="container" style="padding-top:50px">
-    <div class="row" style="padding-top:20px">
-        <div class="col-lg-12">
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <i class="fa fa-info fa-fw"></i> Help
-                </div>
-                <div class="panel-body">
-                    <h2>Introduction</h2>
-                    Welcome
-                </div>
-            </div>
+     <div class="col-sm-3 col-sm-offset-1 box bg-info text-center">
+            <i class="fa fa-2x fa-paint-brush"></i><br>
+            <h1><a href="/plugin">View Plugins</a></h1>
         </div>
+        <div class="col-sm-3 box bg-info text-center">
+            <i class="fa fa-2x fa-question"></i><br>
+            <h1><a href="/help">Help</a></h1>
+        </div>
+        <div class="col-sm-3 box bg-info text-center">
+            <i class="fa fa-2x fa-users"></i><br>
+            <h1><a href="/group">View Groups</a></h1>
+        </div>
+    <div class="row" >
+
+##             <div class="panel panel-default">
+##                 <div class="panel-heading">
+##                     <i class="fa fa-info fa-fw"></i> Help
+##                 </div>
+##                 <div class="panel-body">
+##                     <h2>Introduction</h2>
+##                     Welcome
+##                 </div>
+##             </div>
+
     </div>
 </div>
 <script src="https://cdn.rawgit.com/google/code-prettify/master/loader/run_prettify.js"></script>

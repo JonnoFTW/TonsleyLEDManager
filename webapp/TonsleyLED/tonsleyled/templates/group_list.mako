@@ -152,21 +152,46 @@
             console.log(data);
         });
     });
-    $()
+    $('input:radio').click(function() {
+        // unselect all other radio boxes and post that this is new default
+        // group
+
+        // find the checked box, uncheck it, then save it
+
+        $('input:radio:checked')
+                .prop('checked', false)
+                .parent()
+                .parent()
+                .find('button')
+                .last()
+                .click();
+        // mark the default schedule enabled
+        $(this).
+            prop('checked', true)
+                .parent()
+                .parent()
+                .find('.enabler')
+                .prop('checked', true)
+                .parent()
+                .parent()
+                .find('button')
+                .last()
+                .click();
+    });
     $(function () {
         $('.time_').datetimepicker({format: 'HHmm'});
         $('.date_from').datetimepicker({format: 'D/MM/YYYY'});
     });
     $('.clear-event').click(function () {
         $(this)
-                .parent()
-                .siblings()
-                .find('input')
-                .slice(2)
-                .not(':button, :submit, :reset, :hidden')
-                .val('')
-                .removeAttr('checked')
-                .removeAttr('selected');
+            .parent()
+            .siblings()
+            .find('input')
+            .slice(2)
+            .not(':button, :submit, :reset, :hidden')
+            .val('')
+            .removeAttr('checked')
+            .removeAttr('selected');
     });
 
 </script>
