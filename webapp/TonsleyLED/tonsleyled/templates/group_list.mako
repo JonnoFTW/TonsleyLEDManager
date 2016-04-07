@@ -72,7 +72,7 @@
                             if group.repeats is not None:
                                     repeats = "value={}".format(group.repeats)
                         %>
-                            <td><input type="number" min="0" id="repeats" style="width:40px" ${repeats} /></td>
+                            <td><input class="form-control" type="number" min="0" id="repeats" style="width:60px" ${repeats} /></td>
                             <td>
                                 <div class="form-group">
                                     <div class='input-group date'>

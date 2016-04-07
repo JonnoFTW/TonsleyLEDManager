@@ -62,26 +62,26 @@ def test_sched():
             'length': 20,
             'code': code_gol
         },
-        # {
-        #     'name': 'Message',
-        #     'length': 15,
-        #     'code': code_message
-        # },
-        # {
-        #     'name': 'Maze Runner',
-        #     'length': 9,
-        #     'code': code_maze
-        # },
-        # {
-        #     'name': 'Rolling Gradients',
-        #     'length': 15,
-        #     'code': code_roll
-        # },
-        # {
-        #     'name': 'Particle Simulation',
-        #     'length': 15,
-        #     'code': code_ball
-        # }
+        {
+            'name': 'Message',
+            'length': 15,
+            'code': code_message
+        },
+        {
+            'name': 'Maze Runner',
+            'length': 9,
+            'code': code_maze
+        },
+        {
+            'name': 'Rolling Gradients',
+            'length': 15,
+            'code': code_roll
+        },
+        {
+            'name': 'Particle Simulation',
+            'length': 15,
+            'code': code_ball
+        }
     ])
 
 """
@@ -152,7 +152,7 @@ def refresh_schedule():
         self.pixels.sort(1)
         return self.pixels
     """
-    # print "Updating schedule"
+    print "Updating schedule"
     db_user = os.environ.get('DBUSER', '<username>')
     db_pass = os.environ.get('DBPASSWORD', '<password>')
     db_host = os.environ.get('DBHOST', '<host>')
@@ -196,7 +196,8 @@ def refresh_schedule():
 
     if current_plugin and len(schedule) > 2 and current_plugin['id'] in pluck(schedule, 'id'):
         while schedule[0]['id'] != current_plugin['id']:
-            schedule.rotate()
+            schedule.rotate(-1)
+        schedule.rotate()
     else:
         schedule.rotate(-1)
     # show_schedule(schedule)
@@ -217,11 +218,11 @@ def load_next_plugin():
     """
     while True:
         try:
-            next = schedule[-1]
-            schedule.rotate(1)
 
+            schedule.rotate(1)
+            next = schedule[-1]
             show_schedule(schedule)
-            print next['name']
+            # print next['name']
         except IndexError as e:
             print "No valid plugins could be loaded"
             return None, 0
@@ -232,10 +233,13 @@ def load_next_plugin():
             print next, "is not a valid plugin"
             continue
         end = now + next['duration']
-        if next['message'] is not None:
-            # print "doing messsage"
-            return plugin.Runner(board_dimensions, next['message']), end
-        return plugin.Runner(board_dimensions), end
+        try:
+            if next['message'] is not None:
+                # print "doing messsage"
+                return plugin.Runner(board_dimensions, next['message']), end
+            return plugin.Runner(board_dimensions), end
+        except Exception as e:
+            print e.message
 
 
 client = opc.Client(IP_PORT)

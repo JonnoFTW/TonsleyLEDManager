@@ -389,8 +389,7 @@ def check_credentials(username, password):
 
     connection = Connection(server, user=LDAP_USERNAME, password=password, authentication=NTLM)
     try:
-        connection.bind()
-        return True
+        return connection.bind()
     except:
         return False
 
@@ -460,6 +459,26 @@ def show_user(request):
        'plugins': plugins,
        'groups': groups
     }
+
+
+@view_config(route_name='update_user', renderer='json', request_method='POST')
+@admin_only
+@authenticate
+def update_user(request):
+    """
+    update the user level
+    :param request:
+    :return:
+    """
+    user = request.db_session.query(LedUser).filter(LedUser.id == request.matchdict['user_id']).first()
+
+    if user is not None:
+        level = request.POST.get('access_level', None)
+        if level is not None and int(level) in [0,2]:
+            user.access_level = int(level)
+            return {'message': 'success'}
+    else:
+        return {'message': "Nothing changed"}
 
 @view_config(route_name='users', renderer='json', request_method='POST')
 @admin_only
