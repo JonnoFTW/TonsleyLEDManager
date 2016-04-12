@@ -61,32 +61,32 @@ def test_sched():
         {
             'id': 1,
             'name': 'Game of Life',
-            'length': 20,
+            'duration': 20,
             'code': code_gol
         },
         {
             'id': 2,
             'name': 'Message',
-            'length': 15,
+            'duration': 15,
             'message': 'Default Message!',
             'code': code_message
         },
         {
             'id': 3,
             'name': 'Maze Runner',
-            'length': 9,
+            'duration': 9,
             'code': code_maze
         },
         {
             'id': 4,
             'name': 'Rolling Gradients',
-            'length': 15,
+            'duration': 15,
             'code': code_roll
         },
         {
             'id': 5,
             'name': 'Particle Simulation',
-            'length': 15,
+            'duration': 15,
             'code': code_ball
         }
     ])
@@ -228,8 +228,8 @@ def load_next_plugin():
             schedule.rotate(1)
             next = schedule[-1]
             current_plugin = next
-            show_schedule(schedule)
-            # print next['name']
+            # show_schedule(schedule)
+            print next['name']
         except IndexError as e:
             print "No valid plugins could be loaded"
             return None, 0
