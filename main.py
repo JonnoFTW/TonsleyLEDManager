@@ -37,7 +37,8 @@ if len(sys.argv) > 1:
     IP_PORT = sys.argv[1]
 
 FPS = 10
-global current_plugin_end, schedule, last_schedule_update
+global current_plugin_end, schedule, last_schedule_update, current_plugin
+current_plugin = None
 last_schedule_update = 0
 current_plugin_end = 0
 fpsClock = pygame.time.Clock()
@@ -58,39 +59,46 @@ def test_sched():
     code_gol = get_file('plugins/game_of_life.py')
     return deque([
         {
+            'id': 1,
             'name': 'Game of Life',
             'length': 20,
             'code': code_gol
         },
         {
+            'id': 2,
             'name': 'Message',
             'length': 15,
+            'message': 'Default Message!',
             'code': code_message
         },
         {
+            'id': 3,
             'name': 'Maze Runner',
             'length': 9,
             'code': code_maze
         },
         {
+            'id': 4,
             'name': 'Rolling Gradients',
             'length': 15,
             'code': code_roll
         },
         {
+            'id': 5,
             'name': 'Particle Simulation',
             'length': 15,
             'code': code_ball
         }
     ])
 
-"""
-Only returns the group id of the first schedule that should be running,
-if all else fails, play the default
-"""
+
 def get_current_schedule(conn):
+    """
+    Only returns the group id of the first schedule that should be running,
+    if all else fails, play the default
+    """
     cursor = conn.cursor()
-    sql = """SELECT * FROM led_group"""
+    sql = """SELECT * FROM led_group WHERE `enabled` = 1"""
     cursor.execute(sql)
     # schedule will be at row 0
     rows = cursor.fetchall()
@@ -152,6 +160,7 @@ def refresh_schedule():
         self.pixels.sort(1)
         return self.pixels
     """
+    global current_plugin
     print "Updating schedule"
     db_user = os.environ.get('DBUSER', '<username>')
     db_pass = os.environ.get('DBPASSWORD', '<password>')
@@ -182,9 +191,6 @@ def refresh_schedule():
               `led_group_id` = {}
              ORDER BY `position` DESC """.format(group_id['id'])
     cursor.execute(sql)
-    current_plugin = None
-    if len(schedule) > 0:
-        current_plugin = schedule[-1]
     schedule.clear()
 
     for row in cursor:
@@ -195,9 +201,8 @@ def refresh_schedule():
     # roll the schedule until we get old_schedule[0] at the start
 
     if current_plugin and len(schedule) > 2 and current_plugin['id'] in pluck(schedule, 'id'):
-        while schedule[0]['id'] != current_plugin['id']:
+        while schedule[-1]['id'] != current_plugin['id']:
             schedule.rotate(-1)
-        schedule.rotate()
     else:
         schedule.rotate(-1)
     # show_schedule(schedule)
@@ -216,11 +221,13 @@ def load_next_plugin():
     no valid plugins available
     :return: a plugin that can be run()
     """
+    global current_plugin
     while True:
         try:
 
             schedule.rotate(1)
             next = schedule[-1]
+            current_plugin = next
             show_schedule(schedule)
             # print next['name']
         except IndexError as e:
@@ -234,6 +241,7 @@ def load_next_plugin():
             continue
         end = now + next['duration']
         try:
+
             if next['message'] is not None:
                 # print "doing messsage"
                 return plugin.Runner(board_dimensions, next['message']), end
