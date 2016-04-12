@@ -68,7 +68,7 @@ Managing Plugins
 def list_plugins(request):
     """List plugins
     """
-    print request.exception
+    # print request.exception
     return get_all_plugins(request)
 
 
@@ -80,7 +80,7 @@ def create_plugin(request):
     Create a plugin
     """
     try:
-        print request.POST
+        # print request.POST
         code = request.POST['source']
         name = request.POST['name']
         userid = request.authenticated_userid
@@ -157,7 +157,7 @@ Update the Schedule of a group
 def update_schedule(request):
     # post args should be a mapping of plugin_id -> [position, enabled, duration]
     group_id = request.matchdict['group_id']
-    print request.POST
+    # print request.POST
     for plugin_id, data in post_to_dict(request.POST).items():
 
         plugin = request.db_session.query(LedSchedule).filter(
@@ -214,7 +214,7 @@ def update_group_plugins(request):
             days = POST['days'][:7]
             if not re.match("[0|1]{7}", days):
                 raise exc.HTTPBadRequest("Days must have 7 valid days")
-            print "Setting days", days
+            # print "Setting days", days
             if "1" in days:
                 group.days_of_week = days
             else:
@@ -265,7 +265,7 @@ def add_group_plugin(request):
     gid = request.matchdict['group_id']
     can_modify_group(request, gid)
     plugins = request.POST.get('plugins', None)
-    print request.POST.values()
+    # print request.POST.values()
     if plugins is None:
         raise exc.HTTPBadRequest('Please specify plugins to add to the schedule')
     for plugin in request.POST.values():
