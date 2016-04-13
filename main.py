@@ -247,7 +247,7 @@ def load_next_plugin():
                 return plugin.Runner(board_dimensions, next['message']), end
             return plugin.Runner(board_dimensions), end
         except Exception as e:
-            print e.message
+            print "Could not load plugin:", e.message
 
 
 client = opc.Client(IP_PORT)
@@ -277,7 +277,7 @@ while True:
         try:
             pixels = plugin.run()
             if not isinstance(pixels, np.ndarray) or pixels.shape != output_shape:
-                raise Exception("Pixels must be a numpy array with shape " + str(output_shape))
+                raise Exception("Pixels must be a numpy array with shape " + str(output_shape)+" received "+str(pixels.shape))
         except Exception as e:
             print "Error running plugin {}: {}".format(schedule[0]['name'], e.message)
             plugin, current_plugin_end = load_next_plugin()

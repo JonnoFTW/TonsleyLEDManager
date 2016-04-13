@@ -42,7 +42,7 @@ class Runner:
         self.last = deque([], 10)
         self.cells = self.np.zeros((self.height, self.width), dtype=self.np.uint8)
         # add a few gliders of random orientation
-        things = map(lambda x: self.np.array(read_cells(x)), [multum, multum, multum])
+        things = map(lambda x: self.np.array(read_cells(x)), [lwss, glider, multum])
         from random import choice
         for _ in xrange(10):
             thing = choice(things)
