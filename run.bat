@@ -6,4 +6,4 @@ set DBUSER=
 @echo on
 start python main.py
 cd webapp\TonsleyLED\tonsleyled
-start pserve production.ini
+start pserve production.ini --reload
