@@ -242,7 +242,7 @@ def load_next_plugin():
         end = now + next['duration']
         try:
 
-            if next['message'] is not None:
+            if next.get('message', None) is not None:
                 # print "doing messsage"
                 return plugin.Runner(board_dimensions, next['message']), end
             return plugin.Runner(board_dimensions), end
@@ -287,10 +287,10 @@ while True:
     else:
         print "Entering error state"
         pixels = error_pixels
-
-
-        for row in pixels:
-            client.put_pixels(pixels, 0)
+    row_idx = 1
+    for row in np.rot90(pixels):
+        client.put_pixels(pixels, row_idx)
+        row_idx += 1
 
     if pg:
         for e in pygame.event.get():
