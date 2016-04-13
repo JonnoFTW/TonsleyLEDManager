@@ -37,7 +37,11 @@
                                 </option>
                             </select></td>
                             <td>
-                                <button data-id="${user.id}" class="save btn btn-warning">Delete</button>
+                                <form id="delete-${user.id}" method="POST" action="/users/${user.id}/delete">
+                                    <input type="hidden" value="${user.id}" name="user-id"/>
+                                    <button type="submit" data-id="${user.id}" value="submitted" class="save btn btn-warning delete-user">Delete</button>
+                                </form>
+
                             </td>
                         % endfor
                     </tbody>

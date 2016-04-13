@@ -356,6 +356,10 @@ def create_group(request):
     group = LedGroup(name=name, default=False, enabled=False)
     request.db_session.add(group)
     request.db_session.flush()
+    request.db_session.add(LedGroupUser(
+        led_group_id=group.id,
+        led_user=get_user(request),
+        access_level=2))
     print("Made group", group)
     return exc.HTTPFound(location='/group/'+str(group.id))
 
@@ -478,7 +482,7 @@ def update_user(request):
 
     if user is not None:
         level = request.POST.get('access_level', None)
-        if level is not None and int(level) in [0,2]:
+        if level is not None and int(level) in [0, 2]:
             user.access_level = int(level)
             return {'message': 'success'}
     else:
@@ -502,6 +506,29 @@ def create_user(request):
     return exc.HTTPFound(location='/users')
 
 
+@view_config(route_name='user_delete', request_method='POST')
+@admin_only
+@authenticate
+def user_delete(request):
+    """
+    Deletes a user and their group memberships
+    Their plugins will be handed over to the user that deleted them
+    :param request:
+    :return:
+    """
+    # make sure the user actually exists
+    user_id = request.matchdict['user_id']
+    query = request.db_session.query(LedUser).filter(LedUser.id == user_id)
+    user = query.first()
+    if user is None:
+        return exc.HTTPBadRequest("No such user exists")
+    logged_in_user = get_user(request)
+
+    for plugin in request.db_session.query(LedPlugin).filter(LedPlugin.user == user).all():
+        plugin.user_id = logged_in_user.id
+    request.db_session.query(LedGroupUser).filter(LedGroupUser.led_user == user).delete()
+    query.delete()
+    return exc.HTTPFound(location='/users')
 
 """
 Error Views

@@ -52,6 +52,7 @@ def main(global_config, **settings):
     config.add_route('users', '/users')  # get shows list, post adds,
     config.add_route('show_user', '/users/{user_id}')  # get shows, post updates, delete deletes
     config.add_route('update_user', '/users/{user_id}/level')
+    config.add_route('user_delete', '/users/{user_id}/delete')
 
     config.add_route('home', '/')
     config.add_route('help', '/help')
