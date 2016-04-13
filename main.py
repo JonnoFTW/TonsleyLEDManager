@@ -163,7 +163,7 @@ def refresh_schedule():
     global current_plugin
     print "Updating schedule"
     db_user = os.environ.get('DBUSER', '<username>')
-    db_pass = os.environ.get('DBPASSWORD', '<password>')
+    db_pass = os.environ.get('DBPASS', '<password>')
     db_host = os.environ.get('DBHOST', '<host>')
     db_name = os.environ.get('DBNAME', '<dbName>')
     try:

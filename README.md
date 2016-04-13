@@ -42,7 +42,7 @@ Since you're probably running on windows, you need to:
  4. Open a command prompt and navigate to the root directory of this project.
  5. Setup the environment variables:
     * DBUSER
-    * DBPASSWORD
+    * DBPASS
     * DBHOST
     * DBNAME
  6. If you want the current lecture plugin, you need to additionally setup credentials for a staff account:

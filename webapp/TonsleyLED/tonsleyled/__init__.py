@@ -19,12 +19,12 @@ def main(global_config, **settings):
     try:
         db_url = settings['sqlalchemy.url']\
             .replace('DBUser', os.environ['DBUSER'])\
-            .replace('DBPassword', os.environ['DBPASSWORD'])\
+            .replace('DBPassword', os.environ['DBPASS'])\
             .replace('DBHost', os.environ['DBHOST'])\
             .replace('DBName', os.environ['DBNAME'])
     except KeyError:
         log.debug("ERROR: You need to set environment variables for "
-              "DBUSER, DBPASSWORD, DBHOST, DBNAME")
+              "DBUSER, DBPASS, DBHOST, DBNAME")
         exit(1)
     settings['sqlalchemy.url'] = db_url
     # engine = engine_from_config(settings, 'sqlalchemy.')
