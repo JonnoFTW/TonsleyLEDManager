@@ -20,7 +20,7 @@ class Runner:
         self.pixels = np.flipud(np.rot90(self.pixels, 1))
 
     def run(self):
-        self.pixels = self.np.roll(self.pixels, 1, 0)
+        self.pixels = self.np.roll(self.pixels, -1, 0)
         out = self.pixels[0: self.dims[0]]
         return out
 

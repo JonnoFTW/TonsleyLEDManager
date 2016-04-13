@@ -32,11 +32,12 @@ try:
 except ImportError:
     pg = False
 
-IP_PORT = "localhost:7890"
+
 if len(sys.argv) > 1:
     IP_PORT = sys.argv[1]
 
-FPS = 10
+FPS = 60
+delay = 0.004
 global current_plugin_end, schedule, last_schedule_update, current_plugin
 current_plugin = None
 last_schedule_update = 0
@@ -174,7 +175,7 @@ def refresh_schedule():
                                      charset='utf8mb4',
                                      cursorclass=pymysql.cursors.DictCursor)
     except pymysql.err.OperationalError as e:
-        print e.message
+        print e
         print "Using default schedule"
         return test_sched()
     cursor = connection.cursor()
@@ -183,7 +184,7 @@ def refresh_schedule():
     group_id = get_current_schedule(connection)
     if group_id is None:
         return test_sched()
-    sql = """SELECT * FROM `mack0242`.`led_schedule`
+    sql = """SELECT * FROM `led_schedule`
              LEFT OUTER JOIN led_plugin
              ON led_schedule.led_plugin_id = led_plugin.id
              WHERE
@@ -247,7 +248,7 @@ def load_next_plugin():
                 return plugin.Runner(board_dimensions, next['message']), end
             return plugin.Runner(board_dimensions), end
         except Exception as e:
-            print "Could not load plugin:", e.message
+            print "Could not load plugin:", e
 
 
 client = opc.Client(IP_PORT)
@@ -288,10 +289,12 @@ while True:
         print "Entering error state"
         pixels = error_pixels
     row_idx = 1
-    for row in np.rot90(pixels):
-        client.put_pixels(pixels, row_idx)
+    for row in reversed(np.rot90(pixels)):
+        client.put_pixels(row, row_idx)
+        time.sleep(delay)
+        client.put_pixels(row, row_idx)
+        time.sleep(delay)
         row_idx += 1
-
     if pg:
         for e in pygame.event.get():
             if e.type == pygame.QUIT:

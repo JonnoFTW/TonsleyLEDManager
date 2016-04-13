@@ -33,7 +33,7 @@
                     <i class="fa fa-info fa-fw"></i> New Plugin
                 </div>
                 <div class="panel-body">
-                    <form class="form-horizontal" id="new-plugin-form">
+                    <form method="POST" class="form-horizontal" id="new-plugin-form">
                         <div class="form-group">
                             <label for="inputEmail3" class="col-sm-2 control-label">Name</label>
                             <div class="col-sm-10">
