@@ -16,8 +16,10 @@ from models import LedSchedule, LedUser, LedGroup, LedPlugin, LedGroupUser
 """
 Helper functions and wrapppers
 """
+
 def get_user(request):
     return request.db_session.query(LedUser).filter(LedUser.id == request.authenticated_userid).first()
+
 
 def admin_only(func):
     def _admin_only(*args, **kwargs):
@@ -26,6 +28,7 @@ def admin_only(func):
             raise exc.HTTPForbidden('You do not have sufficient permissions to view this page')
         return func(args, **kwargs)
     return _admin_only
+
 
 def authenticate(func):
     def auth_only(*args, **kwargs):
@@ -36,6 +39,7 @@ def authenticate(func):
             raise exc.HTTPFound(location='/login')
         return func(args[1], **kwargs)
     return auth_only
+
 
 def get_all_plugins(request):
     query = request.db_session.query(LedPlugin)
@@ -62,7 +66,6 @@ def help_get(request):
 """
 Managing Plugins
 """
-
 @view_config(route_name='plugin', renderer='templates/plugin_list.mako', request_method='GET')
 @authenticate
 def list_plugins(request):
@@ -267,7 +270,7 @@ def add_group_plugin(request):
     plugins = request.POST.get('plugins', None)
     # print request.POST.values()
     if plugins is None:
-        raise exc.HTTPBadRequest('Please specify plugins to add to the schedule')
+        return exc.HTTPFound(location='/group/' + gid)
     for plugin in request.POST.values():
         scheduled_plugin = LedSchedule(led_group_id=gid, led_plugin_id=int(plugin), duration=30, enabled=True, position=9)
         try:
@@ -280,6 +283,7 @@ def add_group_plugin(request):
 @view_config(route_name='group_update_user_level', request_method='POST')
 @authenticate
 def update_group_user_level(request):
+    # only a group admin should be able to do this
     gid = request.matchdict['group_id']
     can_modify_group(request, gid)
     user_id = request.POST['user_id']
@@ -331,10 +335,12 @@ def list_groups(request):
     user = get_user(request)
 
     query = request.db_session.query(LedGroup)
+    users_groups = request.db_session.query(LedGroupUser).filter(LedGroupUser.led_user == user).all()
     if user.access_level != 2:
-        users_groups = request.db_session.query(LedGroupUser).filter(LedGroupUser.led_user == user).all()
         query.filter(LedGroup.id.in_(pluck(users_groups, 'led_group_id')))
+    groups_admin = [group.led_group_id for group in users_groups if group.access_level == 2]
     return {
+        'user_admins': groups_admin,
         'groups': query.all()
     }
 
@@ -374,8 +380,6 @@ def show_group(request):
         'other_plugins': other_plugins,
         'group_admin': can_modify_group(request, group.id, False)
     }
-
-
 
 
 def check_credentials(username, password):

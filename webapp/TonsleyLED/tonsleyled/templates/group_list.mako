@@ -88,6 +88,8 @@
                                     </div>
                                 </div>
                             </td>
+                            ## only group admin should be able to see these buttons
+                            % if group.id in user_admins:
 
                             <td>
                                 <button name="special" class="btn btn-warning clear-event">Clear</button>
@@ -95,7 +97,7 @@
                             <td>
                                 <button data-id="${group.id}" class="save btn btn-primary">Save</button>
                             </td>
-
+                            % endif
                         % endfor
                     </tbody>
                 </table>
