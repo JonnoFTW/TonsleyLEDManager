@@ -1,9 +1,11 @@
 from pyramid.authentication import AuthTktAuthenticationPolicy
 from pyramid.authorization import ACLAuthorizationPolicy
 from pyramid.config import Configurator
+from pyramid.security import unauthenticated_userid
 
 import os
 import logging
+
 from .models import (
     LedUser,
     DBSession,
@@ -36,6 +38,11 @@ def main(global_config, **settings):
     config.include('pyramid_mako')
     config.include('.models')
 
+    def get_user(request):
+        userid = unauthenticated_userid(request)
+        if userid is not None:
+            return request.db_session.query(LedUser).filter(LedUser.id == request.authenticated_userid).first()
+
     def auth_callback(uid, request):
         user = request.db_session.query(LedUser).filter(LedUser.id == uid).first()
         if user is not None:
@@ -45,6 +52,8 @@ def main(global_config, **settings):
     config.set_authentication_policy(auth_policy)
     config.set_authorization_policy(ACLAuthorizationPolicy())
     config.add_static_view('static', 'static', cache_max_age=3600)
+
+    config.add_request_method(get_user, 'user', reify=True)
 
     config.add_route('login', '/login') # post and get
     config.add_route('logout', '/logout')
@@ -59,6 +68,7 @@ def main(global_config, **settings):
 
     config.add_route('plugin', '/plugin')
     config.add_route('plugin_update', '/plugin/{plugin_id}')
+    config.add_route('plugin_delete', '/plugin/{plugin_id}/delete')
 
     config.add_route('schedule_update', '/schedule/{group_id}')  #post to manage the scheduel of a group
 

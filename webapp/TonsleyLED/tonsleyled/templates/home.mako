@@ -12,16 +12,19 @@
 <div class="container" style="padding-top:50px">
      <div class="col-sm-3 col-sm-offset-1 box bg-info text-center">
             <i class="fa fa-2x fa-paint-brush"></i><br>
-            <h1><a href="/plugin">View Plugins</a></h1>
+            <h1><a href="/plugin">View/Create Plugins</a></h1>
         </div>
         <div class="col-sm-3 box bg-info text-center">
             <i class="fa fa-2x fa-question"></i><br>
             <h1><a href="/help">Help</a></h1>
         </div>
+        % if request.user.admin:
+
         <div class="col-sm-3 box bg-info text-center">
             <i class="fa fa-2x fa-users"></i><br>
             <h1><a href="/group">View Groups</a></h1>
         </div>
+             % endif
     <div class="row" >
 
 ##             <div class="panel panel-default">

@@ -17,14 +17,12 @@ from models import LedSchedule, LedUser, LedGroup, LedPlugin, LedGroupUser
 Helper functions and wrapppers
 """
 
-def get_user(request):
-    return request.db_session.query(LedUser).filter(LedUser.id == request.authenticated_userid).first()
-
 
 def admin_only(func):
     def _admin_only(*args, **kwargs):
-        user = args[1].db_session.query(LedUser).filter(and_(LedUser.access_level == 2, LedUser.id == args[1].authenticated_userid)).first()
-        if user is None:
+        user = args[1].user
+        if user is None or not user.admin:
+            print user, "is forbidden"
             raise exc.HTTPForbidden('You do not have sufficient permissions to view this page')
         return func(args, **kwargs)
     return _admin_only
@@ -36,6 +34,7 @@ def authenticate(func):
             args = args[0]
         # print "auth uid is", request.authenticated_userid
         if args[1].authenticated_userid is None:
+            print "Not logged in!"
             raise exc.HTTPFound(location='/login')
         return func(args[1], **kwargs)
     return auth_only
@@ -43,9 +42,8 @@ def authenticate(func):
 
 def get_all_plugins(request):
     query = request.db_session.query(LedPlugin)
-    user = get_user(request)
-    if user is not None and user.access_level != 2:
-        query.filter(LedPlugin.user == user)
+    if request.user is not None and request.user.admin:
+        query.filter(LedPlugin.user == request.user)
     return {
         'plugins': query.all()
     }
@@ -71,7 +69,6 @@ Managing Plugins
 def list_plugins(request):
     """List plugins
     """
-    # print request.exception
     return get_all_plugins(request)
 
 
@@ -103,8 +100,14 @@ def delete_plugin(request):
     Delete A plugin
     """
     plugin_id = request.matchdict['plugin_id']
-    request.db_session.query(LedPlugin).filter(LedPlugin.id == plugin_id).delete()
-    request.db_session.flush()
+    user = request.user
+    query = request.db_session.query(LedPlugin).filter(LedPlugin.id == plugin_id)
+    plugin = query.first()
+    if plugin is None:
+        raise exc.HTTPBadRequest('No such plugin')
+    if user != plugin.user or not user.admin:
+        raise exc.HTTPForbidden("You don't have access to do that")
+    query.delete()
     return {'msg': 'Deleted'}
 
 
@@ -113,6 +116,12 @@ def show_plugin(request):
     return {
         'plugins': [request.db_session.query(LedPlugin).filter(LedPlugin.id == request.matchdict['plugin_id']).first()]
     }
+
+
+def to_null(val):
+    if val == '':
+        return None
+    return val
 
 
 @view_config(route_name='plugin_update', renderer='json', request_method='POST')
@@ -124,10 +133,11 @@ def update_plugin(request):
     if not plugin:
         raise exc.HTTPBadRequest("No such plugin")
     else:
-        def to_null(val):
-            if val == '':
-                return None
-            return val
+        # only a site admin or plugin owner can edit
+        user = request.user
+        if user != plugin.user or not user.admin:
+            raise exc.HTTPForbidden("You don't have access to do that")
+
         POST = {k: to_null(v) for k, v in request.POST.items()}
         if POST['code']:
             plugin.code = POST['code']
@@ -183,7 +193,9 @@ Manage A Group
 @authenticate
 def update_group_plugins(request):
     # make sure the plugin id exists
+
     group_id = request.matchdict['group_id']
+    can_modify_group(request, group_id)
     group = request.db_session.query(LedGroup).filter(LedGroup.id == group_id).first()
     if not group:
         raise exc.HTTPBadRequest("No such plugin")
@@ -235,8 +247,8 @@ def update_group_plugins(request):
 
 
 def can_modify_group(request, gid, raise_exc=True):
-    user = get_user(request)
-    if user.access_level == 2:
+    user = request.user
+    if user.admin:
         return True
     group_user = request.db_session.query(LedGroupUser).filter(and_(
         LedGroupUser.led_group_id == gid,
@@ -249,17 +261,19 @@ def can_modify_group(request, gid, raise_exc=True):
 
 
 @view_config(route_name='group_plugins_delete', request_method='POST')
+@admin_only
 @authenticate
 def delete_group_plugin(request):
     gid = request.matchdict['group_id']
     can_modify_group(request, gid)
     plugin_id = request.POST['plugin_id']
     request.db_session.query(LedSchedule).filter(and_(LedSchedule.led_group_id == gid,
-                                                       LedSchedule.led_plugin_id == plugin_id)).delete()
+                                                      LedSchedule.led_plugin_id == plugin_id)).delete()
     return exc.HTTPFound(location='/group/' + gid)
 
 
 @view_config(route_name='group_plugins_add', request_method='POST')
+@admin_only
 @authenticate
 def add_group_plugin(request):
     # make sure the users are in the group:
@@ -281,6 +295,7 @@ def add_group_plugin(request):
 
 
 @view_config(route_name='group_update_user_level', request_method='POST')
+@admin_only
 @authenticate
 def update_group_user_level(request):
     # only a group admin should be able to do this
@@ -296,6 +311,7 @@ def update_group_user_level(request):
 
 
 @view_config(route_name='group_delete_user', request_method='POST')
+@admin_only
 @authenticate
 def delete_group_user(request):
     gid = request.matchdict['group_id']
@@ -307,6 +323,7 @@ def delete_group_user(request):
 
 
 @view_config(route_name='group_update_users', request_method='POST')
+@admin_only
 @authenticate
 def add_group_users(request):
     # make sure the users are in the group:
@@ -328,15 +345,16 @@ def add_group_users(request):
 
 
 @view_config(route_name='group', renderer='templates/group_list.mako', request_method='GET')
+@admin_only
 @authenticate
 def list_groups(request):
     # a regular user will have their groups listed
     # admin will see all groups
-    user = get_user(request)
+    user = request.user
 
     query = request.db_session.query(LedGroup)
     users_groups = request.db_session.query(LedGroupUser).filter(LedGroupUser.led_user == user).all()
-    if user.access_level != 2:
+    if not user.admin:
         query.filter(LedGroup.id.in_(pluck(users_groups, 'led_group_id')))
     groups_admin = [group.led_group_id for group in users_groups if group.access_level == 2]
     return {
@@ -358,7 +376,7 @@ def create_group(request):
     request.db_session.flush()
     request.db_session.add(LedGroupUser(
         led_group_id=group.id,
-        led_user=get_user(request),
+        led_user=request.user,
         access_level=2))
     print("Made group", group)
     return exc.HTTPFound(location='/group/'+str(group.id))
@@ -369,8 +387,12 @@ def create_group(request):
 def show_group(request):
     # a regular user will have their groups listed
     # admin will see all groups
+    user = request.user
     group = request.db_session.query(LedGroup).filter(LedGroup.id == request.matchdict['group_id']).first()
+
     users = request.db_session.query(LedGroupUser).filter(LedGroupUser.led_group == group).all()
+    if not (user.admin or user.id in pluck(users, 'led_user_id')):
+        raise exc.HTTPForbidden("Only site admins or group members can view this")
     schedule = request.db_session.query(LedSchedule).filter(LedSchedule.led_group == group).order_by(LedSchedule.position.asc()).all()
     subquery = request.db_session.query(LedGroupUser.led_user_id).filter(LedGroupUser.led_group == group)
     other_users = request.db_session.query(LedUser).filter(~LedUser.id.in_(subquery))
@@ -392,10 +414,10 @@ def check_credentials(username, password):
     # Adapt to your needs
 
     """
-    LDAP_USERNAME = '\\%s@flinders.edu.au' % username
+    ldap_user = '\\%s@flinders.edu.au' % username
     server = Server('ad.flinders.edu.au', use_ssl=True)
 
-    connection = Connection(server, user=LDAP_USERNAME, password=password, authentication=NTLM)
+    connection = Connection(server, user=ldap_user, password=password, authentication=NTLM)
     try:
         return connection.bind()
     except:
@@ -406,7 +428,6 @@ def check_credentials(username, password):
 User Stuff
 """
 @view_config(route_name='login', renderer='templates/login.mako')
-@forbidden_view_config(renderer='templates/login.mako')
 def login_view(request):
     login_url = request.resource_url(request.context, 'login')
     referrer = request.url
@@ -488,6 +509,7 @@ def update_user(request):
     else:
         return {'message': "Nothing changed"}
 
+
 @view_config(route_name='users', renderer='json', request_method='POST')
 @admin_only
 @authenticate
@@ -522,7 +544,7 @@ def user_delete(request):
     user = query.first()
     if user is None:
         return exc.HTTPBadRequest("No such user exists")
-    logged_in_user = get_user(request)
+    logged_in_user = request.user
 
     for plugin in request.db_session.query(LedPlugin).filter(LedPlugin.user == user).all():
         plugin.user_id = logged_in_user.id
@@ -530,11 +552,17 @@ def user_delete(request):
     query.delete()
     return exc.HTTPFound(location='/users')
 
+
 """
 Error Views
 """
-
 @view_config(context=exc.HTTPNotFound, renderer='templates/404.mako')
 def not_found(self, request):
     request.response.status = 404
+    return {}
+
+
+@forbidden_view_config(renderer='templates/403.mako')
+def not_allowed(self, request):
+    request.response.status = 403
     return {}

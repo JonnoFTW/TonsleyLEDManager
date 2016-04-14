@@ -23,7 +23,7 @@ rows = 17
 cols = 165
 board_dimensions = (cols, rows)
 output_shape = (cols, rows, 3)
-#disp_size = (cols * 8, rows * 8)
+# disp_size = (cols * 8, rows * 8)
 
 disp_size = (1920*6, 1080)
 os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
@@ -257,12 +257,12 @@ def load_next_plugin():
 
 
 client = opc.Client(IP_PORT)
+
 if client.can_connect():
     print ' Connected to %s' % IP_PORT
 elif not pg:
     # can't connect, but keep running in case the server appears later
     print ' ERROR: could not connect to %s' % IP_PORT
-    exit(1)
 
 plugin = None
 old_pixels = None

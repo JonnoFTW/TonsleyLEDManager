@@ -25,29 +25,32 @@
                 </table>
             </div>
         </div>
-        <div class="col-lg-6">
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <i class="fa fa-info fa-fw"></i> Groups
+        % if request.user.admin or request.user.id == user.id:
+
+            <div class="col-lg-6">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <i class="fa fa-info fa-fw"></i> Groups
+                    </div>
+                    <table class="table table-hover table-bordered table-striped sortable">
+                        <thead>
+                        <tr>
+                            <th data-field="name">Name</th>
+                            <th data-field="level">Level</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                            % for group in groups:
+                                <tr data-id="${group.led_group_id}">
+                                    <td><a href="/group/${group.led_group_id}">${group.led_group.name}</a></td>
+                                    <td>${group.access_level}</td>
+                                </tr>
+                            %endfor
+                        </tbody>
+                    </table>
                 </div>
-                <table class="table table-hover table-bordered table-striped sortable">
-                    <thead>
-                    <tr>
-                        <th data-field="name">Name</th>
-                        <th data-field="level">Level</th>
-                    </tr>
-                    </thead>
-                    <tbody >
-                        % for group in groups:
-                            <tr data-id="${group.led_group_id}">
-                                <td><a href="/group/${group.led_group_id}">${group.led_group.name}</a></td>
-                                <td>${group.access_level}</td>
-                            </tr>
-                        %endfor
-                    </tbody>
-                </table>
             </div>
-        </div>
+        % endif
     </div>
     <div class="row">
         <div class="col-lg-12" id="code-preview">

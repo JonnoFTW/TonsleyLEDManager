@@ -10,7 +10,7 @@
                 <table class="table table-hover table-bordered table-striped sortable" id="node-table">
                     <thead>
                     <tr>
-                        % for i in  ('Name', 'Author'):
+                        % for i in  ('Name', 'Author', 'Delete'):
                             <th data-field="${i}">${i}</th>
                         % endfor
                     </tr>
@@ -20,6 +20,11 @@
                             <tr class="clickable-row" data-id="${plugin.id}">
                                 <td><a href="/plugin/${plugin.id}">${plugin.name}</a></td>
                                 <td><a href="/users/${plugin.user_id}">${plugin.user.email.split('@')[0]}</a></td>
+                                <td>
+                                    <form action="/plugin/${plugin.id}/delete" method="POST">
+                                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                    </form>
+                                </td>
                             </tr>
                         %endfor
                     </tbody>
@@ -27,7 +32,6 @@
             </div>
         </div>
         <div class="col-lg-6">
-        <div class="row">
             <div class="panel panel-default">
                 <div class="panel-heading">
                     <i class="fa fa-info fa-fw"></i> New Plugin
@@ -65,10 +69,9 @@
             </div>
         </div>
     </div>
-    </div>
 
     <div class="row">
-    <div class="col-lg-12" id="code-preview">
+        <div class="col-lg-12" id="code-preview">
             <div class="panel panel-default">
                 <div class="panel-heading">
                     <i class="fa fa-info fa-fw"></i> Source

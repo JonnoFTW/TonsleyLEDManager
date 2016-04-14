@@ -71,6 +71,7 @@ class Client(object):
         try:
             self._debug('_ensure_connected: trying to connect...')
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            socket.setdefaulttimeout(3)
             self._socket.connect((self._ip, self._port))
             self._debug('_ensure_connected:    ...success')
             return True

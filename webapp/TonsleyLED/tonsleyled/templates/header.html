@@ -43,9 +43,13 @@
         </div>
         <div class="collapse navbar-collapse collapse">
             <ul class="nav navbar-nav nav-pills navbar-left">
-                <li><a href="/users">Users</a></li>
-                <li><a href="/plugin">Plugins</a></li>
+
+                % if request.user.admin:
                 <li><a href="/group">Groups</a></li>
+                 <li><a href="/users">Users</a></li>
+                % endif
+
+                <li><a href="/plugin">Plugins</a></li>
                 <li><a href="/help">Help</a></li>
             </ul>
 

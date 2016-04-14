@@ -8,8 +8,8 @@
                     <i class="fa fa-info fa-fw"></i> Help
                 </div>
                 <div class="panel-body">
-                    <h2>404</h2>
-                    Page not found!
+                    <h2>403</h2>
+                    You are forbidden!
                 </div>
             </div>
         </div>

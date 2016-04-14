@@ -42,7 +42,7 @@
                                 <td><a href="/users/${plugin.led_plugin.user_id}">${plugin.led_plugin.user.email}</a>
                                 </td>
                                 % if group_admin:
-                                    <td><input class="form-control" type="number" style="width:60px" value="${plugin.duration}" type="number" min="0"/></td>
+                                    <td><input class="form-control" type="number" style="width:95px" value="${plugin.duration}" type="number" min="0"/></td>
                                     <td><input type="checkbox" ${checked(plugin.enabled)}/></td>
                                     <td><i class="fa fa-arrow-up row-up"></i> <i class="fa fa-arrow-down row-down"></i>
                                     </td>

@@ -10,6 +10,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import engine_from_config
 import transaction
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
     relationship,
     sessionmaker,
@@ -132,3 +133,10 @@ class LedUser(ABase):
     id = Column(Integer, primary_key=True)
     email = Column(String(128), nullable=False)
     access_level = Column(Integer, nullable=False, server_default=text("'0'"))
+
+    @hybrid_property
+    def admin(self):
+        return self.access_level == 2
+
+    def __repr__(self):
+        return "<LedUser id:{} FAN:{}, access:{}>".format(self.id, self.email, self.access_level)
