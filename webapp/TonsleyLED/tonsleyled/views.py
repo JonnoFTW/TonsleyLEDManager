@@ -8,14 +8,22 @@ from pyramid.view import view_config, forbidden_view_config
 from pyramid.view import view_config, forbidden_view_config, notfound_view_config
 from pyramid.security import remember, forget, Authenticated, Allow
 import pyramid.httpexceptions as exc
-from sqlalchemy import and_, update, exc as sql_exc
+from sqlalchemy import and_, update, exc as sql_exc, func
 
 import datetime
-from models import LedSchedule, LedUser, LedGroup, LedPlugin, LedGroupUser
+from models import LedSchedule, LedUser, LedGroup, LedPlugin, LedGroupUser, LedLog
 
 """
 Helper functions and wrapppers
 """
+
+
+def get_user_by_id(request, id):
+    return request.db_session.query(LedUser).filter(LedUser.id == id).first()
+
+
+def log(request, msg):
+    return request.db_session.add(LedLog(datetime=datetime.datetime.now(), email=request.user.email, action=msg))
 
 
 def admin_only(func):
@@ -91,9 +99,10 @@ def create_plugin(request):
     plugin = LedPlugin(name=name, code=code, user_id=userid)
     request.db_session.add(plugin)
     request.db_session.flush()
+    log(request, 'Created plugin <a href="/plugin/{}">{}</a>'.format(plugin.id ,plugin.name))
     return get_all_plugins(request)
 
-@view_config(route_name='plugin_update', renderer='json', request_method='DELETE')
+@view_config(route_name='plugin_delete', request_method='POST')
 @authenticate
 def delete_plugin(request):
     """
@@ -105,16 +114,22 @@ def delete_plugin(request):
     plugin = query.first()
     if plugin is None:
         raise exc.HTTPBadRequest('No such plugin')
-    if user != plugin.user or not user.admin:
+    if user != plugin.user and not user.admin:
         raise exc.HTTPForbidden("You don't have access to do that")
     query.delete()
-    return {'msg': 'Deleted'}
+    log(request, 'Deleted plugin ' + plugin.name)
+    return exc.HTTPFound(location='/plugin')
 
 
 @view_config(route_name='plugin_update', renderer='templates/plugin_show.mako', request_method='GET')
 def show_plugin(request):
+    plugin = request.db_session.query(LedPlugin).filter(LedPlugin.id == request.matchdict['plugin_id']).first()
+    if plugin is None:
+        raise exc.HTTPNotFound()
+    groups = request.db_session.query(LedSchedule).filter(LedSchedule.led_plugin == plugin).all()
     return {
-        'plugins': [request.db_session.query(LedPlugin).filter(LedPlugin.id == request.matchdict['plugin_id']).first()]
+        'plugins': [plugin],
+        'groups': groups
     }
 
 
@@ -135,7 +150,7 @@ def update_plugin(request):
     else:
         # only a site admin or plugin owner can edit
         user = request.user
-        if user != plugin.user or not user.admin:
+        if user != plugin.user and not user.admin:
             raise exc.HTTPForbidden("You don't have access to do that")
 
         POST = {k: to_null(v) for k, v in request.POST.items()}
@@ -143,6 +158,7 @@ def update_plugin(request):
             plugin.code = POST['code']
         if 'name' in POST and POST['name']:
             plugin.name = POST['name']
+        log(request, 'Updated <a href="/plugin/{0}">plugin {1}</a>: '.format(plugin_id, plugin.name, ))
         request.db_session.flush()
         return {
             'success': True
@@ -183,6 +199,7 @@ def update_schedule(request):
             plugin.message = data['message']
         else:
             plugin.message = None
+    log(request, 'Updated schedule for <a href="/group/{}">{}</a>'.format(plugin.led_group_id, plugin.led_group.name))
     return {'message': 'Done'}
 
 
@@ -243,6 +260,7 @@ def update_group_plugins(request):
             group.repeats = None
         if POST['enabled']:
             group.enabled = POST['enabled'] == 'true'
+        log(request, "updated scheduling for <a href='/group/{}'>{}</a>".format(group.id, group.name))
         return {'success': True}
 
 
@@ -267,8 +285,14 @@ def delete_group_plugin(request):
     gid = request.matchdict['group_id']
     can_modify_group(request, gid)
     plugin_id = request.POST['plugin_id']
-    request.db_session.query(LedSchedule).filter(and_(LedSchedule.led_group_id == gid,
-                                                      LedSchedule.led_plugin_id == plugin_id)).delete()
+    query = request.db_session.query(LedSchedule).filter(and_(LedSchedule.led_group_id == gid,
+                                                      LedSchedule.led_plugin_id == plugin_id))
+    sched = query.first()
+    if sched is None:
+        return exc.HTTPBadRequest("Plugin does not exist in that schedule")
+    query.delete()
+    log(request, 'Removed plugin <a href="/plugin/{0}">{1}</a> from schedule of group <a href="/group/{2}">{3}</a>'.
+        format(sched.led_plugin_id, sched.led_plugin.name, sched.led_group_id, sched.led_group.name))
     return exc.HTTPFound(location='/group/' + gid)
 
 
@@ -310,15 +334,19 @@ def update_group_user_level(request):
     return exc.HTTPFound(location='/group/'+gid)
 
 
+
+
 @view_config(route_name='group_delete_user', request_method='POST')
 @admin_only
 @authenticate
 def delete_group_user(request):
     gid = request.matchdict['group_id']
     can_modify_group(request, gid)
+
     user_id = request.POST['user_id']
     request.db_session.query(LedGroupUser).filter(and_(LedGroupUser.led_group_id == gid,
                                                        LedGroupUser.led_user_id == user_id)).delete()
+    log(request, 'Removed from  <a href="/group/{0}">group {0}</a>: {1}'.format(gid, get_user_by_id(request, user_id).email))
     return exc.HTTPFound(location='/group/' + gid)
 
 
@@ -335,12 +363,15 @@ def add_group_users(request):
     # print request.POST
     if users is None:
         raise exc.HTTPBadRequest('Please specify users to add to the group')
+    new_users = []
     for user in request.POST.values():
         group_user = LedGroupUser(led_group_id=gid, led_user_id=user)
         try:
             request.db_session.add(group_user)
+            new_users.append(get_user_by_id(request, user).email)
         except sql_exc.DatabaseError as e:
             print group_user, "already in group"
+    log(request, 'Added users to <a href="/group/{0}">group {0}</a>: {1}'.format(gid, ', '.join(new_users)))
     return exc.HTTPFound(location='/group/' + gid)
 
 
@@ -379,6 +410,7 @@ def create_group(request):
         led_user=request.user,
         access_level=2))
     print("Made group", group)
+    log(request, 'Created group <a href="/group/{0}">{0}</a>'.format(group.id))
     return exc.HTTPFound(location='/group/'+str(group.id))
 
 
@@ -397,7 +429,8 @@ def show_group(request):
     subquery = request.db_session.query(LedGroupUser.led_user_id).filter(LedGroupUser.led_group == group)
     other_users = request.db_session.query(LedUser).filter(~LedUser.id.in_(subquery))
     subquery = request.db_session.query(LedSchedule.led_plugin_id).filter(LedSchedule.led_group == group)
-    other_plugins = request.db_session.query(LedPlugin).filter(~LedPlugin.id.in_(subquery))
+    # other_plugins = request.db_session.query(LedPlugin).filter(~LedPlugin.id.in_(subquery))
+    other_plugins = request.db_session.query(LedPlugin)
     return {
         'group': group,
         'users': users,
@@ -505,7 +538,9 @@ def update_user(request):
         level = request.POST.get('access_level', None)
         if level is not None and int(level) in [0, 2]:
             user.access_level = int(level)
+            log(request, 'Updated user {} to level {}'.format(user.email, level))
             return {'message': 'success'}
+
     else:
         return {'message': "Nothing changed"}
 
@@ -518,12 +553,15 @@ def create_user(request):
     # comma separated emails will make users for all of them
     # user must be a flinders address
     # all users are unnassociated with a particular group by default
+    users = []
     if request.POST.get('emails', None):
         for email in request.POST['emails'].split(','):
             if not re.match(r"[^\W\d_]{1,4}\d{4}", email):
                 continue
             user = LedUser(email=email, access_level=0)
+            users.append(email)
             request.db_session.add(user)
+    log(request, 'Added users ' + ', '.join(users))
     request.db_session.flush()
     return exc.HTTPFound(location='/users')
 
@@ -550,8 +588,28 @@ def user_delete(request):
         plugin.user_id = logged_in_user.id
     request.db_session.query(LedGroupUser).filter(LedGroupUser.led_user == user).delete()
     query.delete()
+    log(request, 'Deleted user '+user.email)
     return exc.HTTPFound(location='/users')
 
+
+@view_config(route_name='logs', renderer='templates/logs.mako', request_method='GET')
+@admin_only
+@authenticate
+def show_logs(request):
+    limit = 100
+    offset = 0
+    if 'limit' in request.GET:
+        limit = int(request.GET['limit'])
+    if 'offset' in request.GET:
+        offset = int(request.GET['offset'])
+    request.offset = offset
+    request.limit = limit
+    request.max = request.db_session.query(func.count(LedLog.id)).scalar()
+    users = {user.email: user.id for user in request.db_session.query(LedUser).all()}
+    return {
+        'logs': request.db_session.query(LedLog).order_by(LedLog.datetime.desc()).offset(offset).limit(limit),
+        'users': users
+    }
 
 """
 Error Views

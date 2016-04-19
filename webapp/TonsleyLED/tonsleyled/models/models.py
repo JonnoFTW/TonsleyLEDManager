@@ -6,7 +6,10 @@ from sqlalchemy import (
     String,
     Date,
     Time,
-    ForeignKey, Boolean)
+    ForeignKey,
+    Boolean,
+    DateTime
+    )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import engine_from_config
 import transaction
@@ -28,6 +31,11 @@ def create_session(request):
     sessionmaker = request.registry['db_sessionmaker']
     session = sessionmaker()
     register(session, transaction_manager=request.tm)
+
+    def cleanup(request):
+        session.close()
+
+    request.add_finished_callback(cleanup)
     return session
 
 
@@ -44,6 +52,7 @@ def includeme(config):
     maker.configure(bind=engine)
     config.registry['db_sessionmaker'] = maker
     config.add_request_method(create_session, 'db_session', reify=True)
+
 
 Base = DBase
 
@@ -131,7 +140,7 @@ class LedUser(ABase):
     __tablename__ = 'led_user'
 
     id = Column(Integer, primary_key=True)
-    email = Column(String(128), nullable=False)
+    email = Column(String(8), nullable=False)
     access_level = Column(Integer, nullable=False, server_default=text("'0'"))
 
     @hybrid_property
@@ -140,3 +149,12 @@ class LedUser(ABase):
 
     def __repr__(self):
         return "<LedUser id:{} FAN:{}, access:{}>".format(self.id, self.email, self.access_level)
+
+
+class LedLog(Base):
+    __tablename__ = 'led_log'
+
+    id = Column(Integer, primary_key=True)
+    datetime = Column(DateTime, nullable=False)
+    email = Column(String(8), nullable=False)
+    action = Column(String(255), nullable=False)

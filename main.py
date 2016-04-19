@@ -23,9 +23,9 @@ rows = 17
 cols = 165
 board_dimensions = (cols, rows)
 output_shape = (cols, rows, 3)
-# disp_size = (cols * 8, rows * 8)
+disp_size = (cols * 8, rows * 8)
 
-disp_size = (1920*6, 1080)
+# disp_size = (1920*6, 1080)
 os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
 try:
     pg = True
@@ -38,7 +38,8 @@ try:
 except ImportError:
     pg = False
 
-IP_PORT = "177.22.11.2:7890"
+# IP_PORT = "177.22.11.2:7890"
+IP_PORT = "localhost:7891"
 if len(sys.argv) > 1:
     IP_PORT = sys.argv[1]
 
@@ -275,6 +276,12 @@ while True:
         last_schedule_update = now
     if now >= current_plugin_end:
         # try:
+            if plugin is not None:
+                # try to finish() the old plugin
+                try:
+                    plugin.finish()
+                except AttributeError as e:
+                    pass
             plugin, current_plugin_end = load_next_plugin()
         # except Exception as e:
         #     print "[x] Failed to load plugin:", e

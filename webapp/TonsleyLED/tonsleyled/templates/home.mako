@@ -18,7 +18,7 @@
             <i class="fa fa-2x fa-question"></i><br>
             <h1><a href="/help">Help</a></h1>
         </div>
-        % if request.user.admin:
+        % if request.user is not None and request.user.admin:
 
         <div class="col-sm-3 box bg-info text-center">
             <i class="fa fa-2x fa-users"></i><br>

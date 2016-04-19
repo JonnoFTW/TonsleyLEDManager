@@ -5,6 +5,8 @@
             <div class="panel panel-default">
                 <div class="panel-heading">
                     <i class="fa fa-info fa-fw"></i> Groups
+                    <div class="pull-right"><span class='alert small' style='display: none' id='update-msg' role='alert'></span>
+                    </div>
                 </div>
 
                 <div class="input-group"><span class="input-group-addon"> <i class="fa fa-search fa-fw"></i></span>
@@ -89,14 +91,14 @@
                                 </div>
                             </td>
                             ## only group admin should be able to see these buttons
-                            % if group.id in user_admins:
+                            % if group.id in user_admins or request.user.admin:
 
-                            <td>
-                                <button name="special" class="btn btn-warning clear-event">Clear</button>
-                            </td>
-                            <td>
-                                <button data-id="${group.id}" class="save btn btn-primary">Save</button>
-                            </td>
+                                <td>
+                                    <button name="special" class="btn btn-warning clear-event">Clear</button>
+                                </td>
+                                <td>
+                                    <button data-id="${group.id}" class="save btn btn-primary">Save</button>
+                                </td>
                             % endif
                         % endfor
                     </tbody>
@@ -141,6 +143,7 @@
             days.push($(this).is(':checked') ? '1' : '0');
         });
         days = days.join("");
+        $('#update-msg').fadeOut().removeClass('alert-danger alert-success');
         var data = {
             enabled: checked,
             time_from: row.find('#time_from').val(),
@@ -152,6 +155,12 @@
         console.log(data);
         $.post('/group/' + id, data, function (data) {
             console.log(data);
+            $('#update-msg').fadeIn(500).addClass('alert-success').text('Saved!');
+        }).fail(function(data, text, xhr) {
+           // console.log(data,text,xhr);
+            $('#update-msg').fadeIn(500).addClass('alert-danger').text('Error: '+data.statusText);
+        }).always(function() {
+            $('#update-msg').delay(2000).fadeOut(500)
         });
     });
     $('input:radio').click(function() {

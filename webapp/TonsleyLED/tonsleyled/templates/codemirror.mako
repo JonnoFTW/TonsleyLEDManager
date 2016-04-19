@@ -35,12 +35,23 @@
 ##     % if request.can_user_edit_plugin():
 ##     % endif
     var saveCode = function() {
+        $('#update-msg').fadeOut().removeClass('alert-danger alert-success');
       // save the code currently being shown
         $.post('/plugin/'+current_id, {
            code: plugins[current_id]
+        }, function() {
+            $('#update-msg').fadeIn(500).addClass('alert-success').text('Saved!');
+        }).fail(function(data, text, xhr) {
+           // console.log(data,text,xhr);
+            $('#update-msg').fadeIn(500).addClass('alert-danger').text('Error: '+data.statusText);
+        }).always(function() {
+            $('#update-msg').delay(2000).fadeOut(500)
         });
     };
     $('#code-preview').find('.panel-heading').prepend(
-            "<button onclick='saveCode()' ' class='btn btn-primary pull-right btn-sm'>Save</button>"
+            "<div class='pull-right'><span class='alert small' style='display: none' id='update-msg' role='alert'></span> " +
+            "<button onclick='saveCode()' class='btn btn-primary btn-sm'>Save</button></div>"
     );
+    ;
+    $('#update-msg').hide();
 </script>

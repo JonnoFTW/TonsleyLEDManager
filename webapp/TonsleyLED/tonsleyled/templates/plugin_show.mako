@@ -12,6 +12,22 @@
             </div>
         </div>
     </div>
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    Featured in Schedules for
+                </div>
+                <div class="panel-body">
+                    <ul>
+                        %for i in groups:
+                            <li><a href="/group/${i.led_group_id}">${i.led_group.name}</a></li>
+                        %endfor
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 <%include file="codemirror.mako"/>
 <%include file="footer.html"/>

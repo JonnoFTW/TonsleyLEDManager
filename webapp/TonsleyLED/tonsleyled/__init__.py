@@ -81,5 +81,7 @@ def main(global_config, **settings):
     config.add_route('group_plugins_delete',    '/group/{group_id}/plugins/delete')
     config.add_route('group_plugins_add',       '/group/{group_id}/plugins/add')
 
+    config.add_route('logs', '/logs')
+
     config.scan()
     return config.make_wsgi_app()
