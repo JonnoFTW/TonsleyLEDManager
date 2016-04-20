@@ -23,9 +23,9 @@ rows = 17
 cols = 165
 board_dimensions = (cols, rows)
 output_shape = (cols, rows, 3)
-disp_size = (cols * 8, rows * 8)
+# disp_size = (cols * 8, rows * 8)
 
-# disp_size = (1920*6, 1080)
+disp_size = (1920*6, 1080)
 os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
 try:
     pg = True
@@ -38,8 +38,8 @@ try:
 except ImportError:
     pg = False
 
-# IP_PORT = "177.22.11.2:7890"
-IP_PORT = "localhost:7891"
+IP_PORT = "177.22.11.2:7890"
+# IP_PORT = "localhost:7891"
 if len(sys.argv) > 1:
     IP_PORT = sys.argv[1]
 
