@@ -16,7 +16,7 @@
                     <thead>
                     <tr>
                         <%
-                            titles = ('Name', 'Enabled','Default', 'Time From', 'Time To', 'Days', 'Repeats', 'Date From','Clear Scheduling', 'Save')
+                            titles = ('Name', 'Enabled','Default', 'Time From', 'Time To', 'Days', 'Repeats', 'Date From','Clear Scheduling', 'Save', 'Delete')
                         %>
                         % for i in titles:
                             <th data-field="${i}">${i}</th>
@@ -98,6 +98,11 @@
                                 </td>
                                 <td>
                                     <button data-id="${group.id}" class="save btn btn-primary">Save</button>
+                                </td>
+                                <td>
+                                    <form action="/group/${group.id}/delete" method="POST">
+                                        <button type="submit" class="save btn btn-danger">Delete</button>
+                                    </form>
                                 </td>
                             % endif
                         % endfor

@@ -1,7 +1,8 @@
 import SocketServer
-from threading import Thread
+from threading import Thread, RLock
+import struct
 
-
+lock = RLock()
 class SocketThread(Thread):
     def __init__(self, group=None, target=None, name=None,
                  args=(), kwargs=None, verbose=None):
@@ -21,7 +22,6 @@ class SocketThread(Thread):
         self.server.server_close()
         super(SocketThread, self).join(timeout)
 
-import struct
 
 class Runner:
 
@@ -31,6 +31,7 @@ class Runner:
         self.np = np
         self.pixels = self.np.zeros((self.board_dimensions[1], self.board_dimensions[0], 3), dtype=self.np.uint8)
         self.buffer = self.np.zeros((self.board_dimensions[1], self.board_dimensions[0], 3), dtype=self.np.uint8)
+
         def chunks(l, n):
             n = max(1, n)
             return [l[i:i + n] for i in range(0, len(l), n)]
@@ -38,12 +39,15 @@ class Runner:
         class MyTCPHandler(SocketServer.BaseRequestHandler):
             def handle(cls):
                 # self.request is the TCP socket connected to the client
-                header = cls.request.recv(4)
-                header = struct.unpack('BBH', header)
-                data = struct.unpack('B'*(165*3), cls.request.recv(165*3))
 
-                self.buffer[header[0]-1] = np.array(chunks(data, 3), dtype=np.uint8)
-                if header[0] == 17:
+                with lock:
+                    for _ in xrange(17*2):
+                        header = cls.request.recv(4)
+                        header = struct.unpack('>BBH', header)
+                        length = header[2]
+                        data = struct.unpack('B'*length, cls.request.recv(length))
+                        self.buffer[header[0]-1] = np.array(chunks(data, 3), dtype=np.uint8)
+                        # print header
                     np.copyto(self.pixels, self.buffer)
 
         self.socket_thread = SocketThread(args=(MyTCPHandler,))
@@ -57,11 +61,12 @@ class Runner:
 
     def run(self):
         # read all the pixels currently in the buffer the buffer and send them
-        return self.np.flipud(self.np.rot90(self.pixels))
+        with lock:
+            return self.np.flipud(self.np.rot90(self.pixels))
 
 if __name__ == "__main__":
     import pygame, sys, atexit
-    FPS = 60
+    FPS = 30 # THIS NEEDS TO ROUGHLY MATCH THE SENDER
     fpsClock = pygame.time.Clock()
     rows = 17
     cols = 165

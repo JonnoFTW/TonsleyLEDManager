@@ -199,7 +199,7 @@ def update_schedule(request):
             plugin.message = data['message']
         else:
             plugin.message = None
-    log(request, 'Updated schedule for <a href="/group/{}">{}</a>'.format(plugin.led_group_id, plugin.led_group.name))
+    log(request, 'Updated plugin schedule for <a href="/group/{}">{}</a>'.format(plugin.led_group_id, plugin.led_group.name))
     return {'message': 'Done'}
 
 
@@ -260,8 +260,23 @@ def update_group_plugins(request):
             group.repeats = None
         if POST['enabled']:
             group.enabled = POST['enabled'] == 'true'
-        log(request, "updated scheduling for <a href='/group/{}'>{}</a>".format(group.id, group.name))
+        log(request, "Updated scheduling for <a href='/group/{}'>{}</a>".format(group.id, group.name))
         return {'success': True}
+
+
+@view_config(route_name='group_delete', request_method='POST')
+@admin_only
+@authenticate
+def delete_group(request):
+    gid = request.matchdict['group_id']
+    group = request.db_session.query(LedGroup).filter(LedGroup.id == gid).first()
+    if group is None:
+        raise exc.HTTPNotFound("No such group")
+    request.db_session.query(LedSchedule).filter(LedSchedule.led_group == group).delete()
+    request.db_session.query(LedGroupUser).filter(LedGroupUser.led_group == group).delete()
+    log(request, 'Delete group {}'.format(group.name))
+    request.db_session.delete(group)
+    return exc.HTTPFound(location='/group')
 
 
 def can_modify_group(request, gid, raise_exc=True):
@@ -410,7 +425,7 @@ def create_group(request):
         led_user=request.user,
         access_level=2))
     print("Made group", group)
-    log(request, 'Created group <a href="/group/{0}">{0}</a>'.format(group.id))
+    log(request, 'Created group <a href="/group/{0}">{1}</a>'.format(group.id, group.name))
     return exc.HTTPFound(location='/group/'+str(group.id))
 
 
@@ -443,11 +458,9 @@ def show_group(request):
 
 def check_credentials(username, password):
     """Verifies credentials for username and password.
-    Returns None on success or a string describing the error on failure
-    # Adapt to your needs
-
+    Returns True on success or False on failure
     """
-    ldap_user = '\\%s@flinders.edu.au' % username
+    ldap_user = '\\{}@flinders.edu.au'.format(username)
     server = Server('ad.flinders.edu.au', use_ssl=True)
 
     connection = Connection(server, user=ldap_user, password=password, authentication=NTLM)
@@ -476,7 +489,6 @@ def login_view(request):
         password = request.params['password']
         user = request.db_session.query(LedUser).filter(LedUser.email == email).first()
         if user and check_credentials(email, password):
-            print(email, "successfully logged in")
             headers = remember(request, user.id)
             return exc.HTTPFound(location=came_from, headers=headers)
         else:

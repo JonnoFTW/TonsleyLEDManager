@@ -124,9 +124,9 @@ class LedPlugin(ABase):
 
 class LedSchedule(ABase):
     __tablename__ = 'led_schedule'
-
-    led_group_id = Column(ForeignKey(u'led_group.id'), primary_key=True, nullable=False, index=True)
-    led_plugin_id = Column(ForeignKey(u'led_plugin.id'), primary_key=True, nullable=False, index=True)
+    id = Column(Integer, primary_key=True)
+    led_group_id = Column(ForeignKey(u'led_group.id'), nullable=False, index=True)
+    led_plugin_id = Column(ForeignKey(u'led_plugin.id'), nullable=False, index=True)
     duration = Column(Integer)
     enabled = Column(Integer)
     position = Column(Integer)

@@ -21,7 +21,7 @@
                                 <td><a href="/plugin/${plugin.id}">${plugin.name}</a></td>
                                 <td><a href="/users/${plugin.user_id}">${plugin.user.email.split('@')[0]}</a></td>
                                 <td>
-                                    <form action="/plugin/${plugin.id}/delete" method="POST">
+                                    <form class='delete-plugin' action="/plugin/${plugin.id}/delete" method="POST">
                                         <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                                     </form>
                                 </td>
@@ -83,5 +83,16 @@
         </div>
     </div>
 </div>
+<script>
+    $('.delete-plugin').submit(function(ev) {
+       var r = confirm("Do you really want to delete the plugin?");
+        if (r==true) {
+            return true;
+        } else{
+            ev.preventDefault();
+            return false;
+        }
+    });
+</script>
 <%include file="codemirror.mako"/>
 <%include file="footer.html"/>
