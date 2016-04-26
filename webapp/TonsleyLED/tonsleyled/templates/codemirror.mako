@@ -39,8 +39,8 @@
       // save the code currently being shown
         $.post('/plugin/'+current_id, {
            code: plugins[current_id]
-        }, function() {
-            $('#update-msg').fadeIn(500).addClass('alert-success').text('Saved!');
+        }, function(data, text, xhr) {
+            $('#update-msg').fadeIn(500).addClass('alert-success').text(data.msg);
         }).fail(function(data, text, xhr) {
            // console.log(data,text,xhr);
             $('#update-msg').fadeIn(500).addClass('alert-danger').text('Error: '+data.statusText);

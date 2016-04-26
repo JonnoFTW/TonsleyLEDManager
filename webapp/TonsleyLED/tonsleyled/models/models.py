@@ -151,10 +151,19 @@ class LedUser(ABase):
         return "<LedUser id:{} FAN:{}, access:{}>".format(self.id, self.email, self.access_level)
 
 
-class LedLog(Base):
+class LedLog(ABase):
     __tablename__ = 'led_log'
 
     id = Column(Integer, primary_key=True)
     datetime = Column(DateTime, nullable=False)
     email = Column(String(8), nullable=False)
     action = Column(String(255), nullable=False)
+
+
+class LedPluginProposed(ABase):
+    __tablename__ = 'led_plugin_proposed'
+
+    led_plugin_id = Column(ForeignKey(u'led_plugin.id'), primary_key=True, index=True)
+    code = Column(Text, nullable=False)
+
+    led_plugin = relationship(u'LedPlugin')

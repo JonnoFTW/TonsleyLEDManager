@@ -11,7 +11,7 @@ import pyramid.httpexceptions as exc
 from sqlalchemy import and_, update, exc as sql_exc, func
 
 import datetime
-from models import LedSchedule, LedUser, LedGroup, LedPlugin, LedGroupUser, LedLog
+from models import LedSchedule, LedUser, LedGroup, LedPlugin, LedGroupUser, LedLog, LedPluginProposed
 
 """
 Helper functions and wrapppers
@@ -116,6 +116,7 @@ def delete_plugin(request):
         raise exc.HTTPBadRequest('No such plugin')
     if user != plugin.user and not user.admin:
         raise exc.HTTPForbidden("You don't have access to do that")
+    request.db_session.query(LedPluginProposed).filter(LedPluginProposed.id == plugin_id).delete()
     query.delete()
     log(request, 'Deleted plugin ' + plugin.name)
     return exc.HTTPFound(location='/plugin')
@@ -139,6 +140,47 @@ def to_null(val):
     return val
 
 
+@view_config(route_name='plugin_approve', renderer='templates/plugin_approval.mako')
+@admin_only
+@authenticate
+def plugin_approve_list(request):
+    return {
+        'plugins': request.db_session.query(LedPluginProposed).all()
+    }
+
+
+@view_config(route_name='plugin_approve_update', request_method='POST')
+@admin_only
+@authenticate
+def approve_plugin_update(request):
+    plugin_id = request.matchdict['plugin_id']
+    plugin_update_query = request.db_session.query(LedPluginProposed).filter(LedPluginProposed.led_plugin_id == plugin_id)
+    plugin_update = plugin_update_query.first()
+    if plugin_update is None:
+        raise exc.HTTPBadRequest("No such plugin to update")
+    plugin = request.db_session.query(LedPlugin).filter(LedPlugin.id == plugin_id).first()
+    plugin.code = plugin_update.code
+    plugin_update_query.delete()
+    log(request, 'Approved updates to plugin <a href="/plugin/{}">{}</a>'.format(plugin.id, plugin.name))
+    return exc.HTTPFound(location='/plugin_approve')
+
+
+@view_config(route_name='plugin_reject_update', request_method='POST')
+@admin_only
+@authenticate
+def reject_plugin_update(request):
+    plugin_id = request.matchdict['plugin_id']
+    plugin_query = request.db_session.query(LedPluginProposed).filter(LedPluginProposed.led_plugin_id == plugin_id)
+    plugin_update = plugin_query.first()
+    if plugin_update is None:
+        raise exc.HTTPBadRequest("No proposal for this plugin")
+    plugin = plugin_update.led_plugin
+    plugin_query.delete()
+    log(request, 'Rejected updates to plugin <a href="/plugin/{}">{}</a>'.format(plugin.id, plugin.name))
+    return exc.HTTPFound(location='/plugin_approve')
+
+
+
 @view_config(route_name='plugin_update', renderer='json', request_method='POST')
 @authenticate
 def update_plugin(request):
@@ -149,20 +191,34 @@ def update_plugin(request):
         raise exc.HTTPBadRequest("No such plugin")
     else:
         # only a site admin or plugin owner can edit
+
+        # a non-admin plugin owner can suggest changes
         user = request.user
         if user != plugin.user and not user.admin:
             raise exc.HTTPForbidden("You don't have access to do that")
-
         POST = {k: to_null(v) for k, v in request.POST.items()}
-        if POST['code']:
-            plugin.code = POST['code']
-        if 'name' in POST and POST['name']:
-            plugin.name = POST['name']
-        log(request, 'Updated <a href="/plugin/{0}">plugin {1}</a>: '.format(plugin_id, plugin.name, ))
-        request.db_session.flush()
-        return {
-            'success': True
-        }
+        if not user.admin:
+            if 'code' not in POST:
+                raise exc.HTTPBadRequest("Please provide the code")
+            plugin_update = request.db_session.query(LedPluginProposed).filter(LedPluginProposed.led_plugin_id == plugin_id).first()
+            if plugin_update is not None:
+                    plugin_update.code = POST['code']
+            else:
+                request.db_session.add(LedPluginProposed(led_plugin_id=plugin_id, code=POST['code']))
+            log(request, "Proposed changes to plugin <a href='/plugin/{}'>{}</a>".format(plugin.id, plugin.name))
+            return {
+                'msg': 'Your update is now awaiting approval'
+            }
+
+        else:
+            if POST['code']:
+                plugin.code = POST['code']
+            if 'name' in POST and POST['name']:
+                plugin.name = POST['name']
+            log(request, 'Updated <a href="/plugin/{0}">plugin {1}</a>: '.format(plugin_id, plugin.name, ))
+            return {
+                'msg': 'Updated code'
+            }
 
 
 def post_to_dict(post):

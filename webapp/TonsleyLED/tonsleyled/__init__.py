@@ -66,9 +66,12 @@ def main(global_config, **settings):
     config.add_route('home', '/')
     config.add_route('help', '/help')
 
-    config.add_route('plugin', '/plugin')
-    config.add_route('plugin_update', '/plugin/{plugin_id}')
-    config.add_route('plugin_delete', '/plugin/{plugin_id}/delete')
+    config.add_route('plugin',                '/plugin')
+    config.add_route('plugin_update',         '/plugin/{plugin_id}')
+    config.add_route('plugin_delete',         '/plugin/{plugin_id}/delete')
+    config.add_route('plugin_approve_update', '/plugin/{plugin_id}/approve')
+    config.add_route('plugin_reject_update',  '/plugin/{plugin_id}/reject')
+    config.add_route('plugin_approve',        '/plugin_approve')
 
     config.add_route('schedule_update', '/schedule/{group_id}')  #post to manage the scheduel of a group
 
