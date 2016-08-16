@@ -1,8 +1,8 @@
 import SocketServer
 from threading import Thread, RLock
-import struct
 
-lock = RLock()
+
+# lock = RLock()
 class SocketThread(Thread):
     def __init__(self, group=None, target=None, name=None,
                  args=(), kwargs=None, verbose=None):
@@ -17,7 +17,7 @@ class SocketThread(Thread):
     def run(self):
         self.server.serve_forever()
 
-    def join(self, timeout=None):
+    def join(self, timeout=1):
         self.server.shutdown()
         self.server.server_close()
         super(SocketThread, self).join(timeout)
@@ -28,6 +28,7 @@ class Runner:
     def __init__(self, board_dimensions):
         self.board_dimensions = board_dimensions
         import numpy as np
+        import struct
         self.np = np
         self.pixels = self.np.zeros((self.board_dimensions[1], self.board_dimensions[0], 3), dtype=self.np.uint8)
         self.buffer = self.np.zeros((self.board_dimensions[1], self.board_dimensions[0], 3), dtype=self.np.uint8)
@@ -40,10 +41,12 @@ class Runner:
             def handle(cls):
                 # self.request is the TCP socket connected to the client
 
-                with lock:
+                # with lock:
+                
                     for _ in xrange(17*2):
                         header = cls.request.recv(4)
                         header = struct.unpack('>BBH', header)
+                        cls.request.send("rec\r\n")
                         length = header[2]
                         data = struct.unpack('B'*length, cls.request.recv(length))
                         self.buffer[header[0]-1] = np.array(chunks(data, 3), dtype=np.uint8)
@@ -61,9 +64,9 @@ class Runner:
 
     def run(self):
         # read all the pixels currently in the buffer the buffer and send them
-        with lock:
+        # with lock:
             return self.np.flipud(self.np.rot90(self.pixels))
-
+        
 if __name__ == "__main__":
     import pygame, sys, atexit
     FPS = 30 # THIS NEEDS TO ROUGHLY MATCH THE SENDER

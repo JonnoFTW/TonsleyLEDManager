@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 import opc
 import pymysql
+import traceback
 import sys
 import os
 import imp
@@ -17,7 +18,7 @@ import numpy as np
 from pluck import pluck
 
 FPS = 60
-delay = 0.004
+delay = 0.003
 
 rows = 17
 cols = 165
@@ -28,10 +29,10 @@ output_shape = (cols, rows, 3)
 disp_size = (1920*6, 1080)
 os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
 try:
-    pg = True
+    pg = 1
     if pg:
-        import pygame
 
+        import pygame
         pygame.init()
         size = width, height = board_dimensions
         screen = pygame.display.set_mode(disp_size)
@@ -64,6 +65,7 @@ def test_sched():
     code_maze = get_file('plugins/maze.py')
     code_message = get_file('plugins/message.py')
     code_gol = get_file('plugins/game_of_life.py')
+    print "Loading default local schedule"
     return deque([
         {
             'id': 1,
@@ -241,8 +243,11 @@ def load_next_plugin():
             print "No valid plugins could be loaded"
             return None, 0
         # print "Loading plugin:", next['name']
-        plugin = imp.new_module("plugin")
-        exec next['code'] in plugin.__dict__
+        try:
+            plugin = imp.new_module("plugin")
+            exec next['code'] in plugin.__dict__
+        except:
+            print "error loading plugin", next['name']
         if not hasattr(plugin, 'Runner'):
             print next, "is not a valid plugin"
             continue
@@ -292,7 +297,8 @@ while True:
             if not isinstance(pixels, np.ndarray) or pixels.shape != output_shape:
                 raise Exception("Pixels must be a numpy array with shape " + str(output_shape)+" received "+str(pixels.shape))
         except Exception as e:
-            print "Error running plugin {}: {}".format(schedule[0]['name'], e.message)
+            traceback.print_exc()
+            print "Error running plugin {}: {}".format(schedule[-1]['name'], e.message)
             plugin, current_plugin_end = load_next_plugin()
             continue
         # make sure the output is only an array-like that uses
@@ -302,6 +308,7 @@ while True:
         pixels = error_pixels
     row_idx = 1
     for row in reversed(np.rot90(pixels)):
+      #  print "Sending to leds"
         client.put_pixels(row, row_idx)
         time.sleep(delay)
         client.put_pixels(row, row_idx)

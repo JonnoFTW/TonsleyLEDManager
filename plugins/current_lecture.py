@@ -1,13 +1,14 @@
 # lecture notice
-from plugins.fonts import Font
-import numpy as np
-
+try:
+    from plugins.fonts import Font
+except ImportError:
+    from fonts import Font
 class Runner:
     def __init__(self, dims):
         self.dims = dims
 
         fnt = Font('open_sans.ttf', 16)
-        # import numpy as np
+        import numpy as np
         self.np = np
         message = self.get_text()
         render = fnt.render_text(message)
@@ -107,27 +108,5 @@ class Runner:
 
 
 if __name__ == "__main__":
-    import pygame, sys
-    FPS = 10
-    fpsClock = pygame.time.Clock()
-    rows = 17
-    cols = 165
-    board_dimensions = (cols, rows)
-
-    disp_size = (cols * 8, rows * 8)
-    pygame.init()
-    size = width, height = board_dimensions
-    screen = pygame.display.set_mode(disp_size)
-    runner = Runner(board_dimensions)
-    while True:
-        for e in pygame.event.get():
-            if e.type == pygame.QUIT:
-                sys.exit()
-        screen.fill((0, 0, 0))
-        # draw the pixels
-        pixels = runner.run()
-        temp_surface = pygame.Surface(board_dimensions)
-        pygame.surfarray.blit_array(temp_surface, pixels)
-        pygame.transform.scale(temp_surface, disp_size, screen)
-        pygame.display.flip()
-        fpsClock.tick(FPS)
+    from demo import show
+    show(Runner, fps=24)

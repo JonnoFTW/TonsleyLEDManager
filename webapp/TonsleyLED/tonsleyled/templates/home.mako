@@ -5,7 +5,7 @@
 
             Tonsley LED Controller</h1>
         <div class="col-md-12">
-
+    Want to get involved? Email <a href="mailto:craig.dawson@flinders.edu.au">craig.dawson@flinders.edu.au</a>
         </div>
     </div>
 </div>
