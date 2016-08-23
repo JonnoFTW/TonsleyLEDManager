@@ -10,7 +10,10 @@ class Runner:
         self.cm = cm
         self.np = np
         self.cl = cl
-        self.ctx = cl.create_some_context()
+
+        platform = cl.get_platforms();
+        my_gpu_devices = platform[0].get_devices(cl.device_type.GPU);
+        self.ctx = cl.Context([my_gpu_devices[0]])
         self.queue = cl.CommandQueue(self.ctx)
         self.prg = cl.Program(self.ctx, """
         #pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
@@ -32,16 +35,28 @@ class Runner:
             }
         }
         """).build()
-        self.cells = self.mandelbrot_set3(-2.0, 0.5, -1.25, 1.25, width=self.width, height=self.height, maxiter=40)[2]
+        import time
+        self.time = time
+        # self.xmin = -.74877
+        # self.xmax = -0.74872
+        # self.ymin = 0.065053
+        # self.ymax = 0.065103
+        self.xmin = -np.pi
+        self.xmax = np.pi
+        self.ymin = -np.pi
+        self.ymax = np.pi
+        cmap = self.cm.get_cmap('magma', 80)
+        self.cols = (cmap.colors*255)[0:, :3].astype(self.np.uint8)
+
 
     def mandelbrot_set3(self, xmin, xmax, ymin, ymax, width, height, maxiter):
         r1 = self.np.linspace(xmin, xmax, width, dtype=self.np.float32)
         r2 = self.np.linspace(ymin, ymax, height, dtype=self.np.float32)
-        c = r1 + r2[:, None] * 1j
+        c = r1 + r2[:, None] * .65j
         c = self.np.ravel(c)
         n3 = self.generate(c, maxiter)
         # n3 = n3.reshape((width, height))
-        return (r1, r2, n3.T)
+        return n3.T
     
     def generate(self, q, maxiter):
         output = self.np.empty(q.shape, dtype=self.np.uint16)
@@ -53,13 +68,21 @@ class Runner:
         return output
 
     def render(self):
-        maxval = self.np.max(self.cells)
-        cmap = self.cm.get_cmap('magma', maxval+1)
-        f = self.np.vectorize(lambda x: (cmap.colors[x][:3]*255).astype(self.np.uint8))
+
+        f = lambda x: self.cols[x]
         return self.np.array(map(f,self.cells)).reshape((self.width, self.height, 3))
 
     def run(self):
-        return self.render()
+        # start = self.time.time()
+        self.cells = self.mandelbrot_set3(self.xmin, self.xmax, self.ymin, self.ymax, width=self.width, height=self.height, maxiter=80)
+        # print self.time.time() - start
+        out = self.render()
+        self.xmin *= .9
+        self.ymin *= .99
+        self.ymax *= .99
+        self.xmax *= .99
+
+        return out
 if __name__ == "__main__":
     from demo import show
-    show(Runner, fps=24)
+    show(Runner, fps=30, rows=800, cols=800, scale=1)

@@ -1,12 +1,11 @@
 import pygame, sys
-def show(Runner, arg=None, fps=24):
+def show(Runner, arg=None, fps=24, rows=17, cols=165, scale=8):
     FPS = fps
     fpsClock = pygame.time.Clock()
-    rows = 17
-    cols = 165
+
     board_dimensions = (cols, rows)
 
-    disp_size = (cols * 8, rows * 8)
+    disp_size = (cols * scale, rows * scale)
     pygame.init()
     size = width, height = board_dimensions
     screen = pygame.display.set_mode(disp_size)
