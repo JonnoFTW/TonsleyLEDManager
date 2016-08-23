@@ -1,5 +1,5 @@
-import pygame, sys
 def show(Runner, arg=None, fps=24, rows=17, cols=165, scale=8):
+    import pygame, sys
     FPS = fps
     fpsClock = pygame.time.Clock()
 
@@ -7,7 +7,6 @@ def show(Runner, arg=None, fps=24, rows=17, cols=165, scale=8):
 
     disp_size = (cols * scale, rows * scale)
     pygame.init()
-    size = width, height = board_dimensions
     screen = pygame.display.set_mode(disp_size)
     if arg is None:
         runner = Runner(board_dimensions)
