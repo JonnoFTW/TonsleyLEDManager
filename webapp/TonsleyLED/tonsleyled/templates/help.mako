@@ -93,5 +93,6 @@ class Runner:
         </div>
     </div>
 </div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prettify/r298/run_prettify.min.js"></script>
 <%include file="footer.html"/>
