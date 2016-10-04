@@ -79,6 +79,7 @@ class Runner:
     def generate(self, q, maxiter):
         cl = self.cl
         mf = cl.mem_flags
+
         output = self.np.zeros((q.shape[0], 4), self.np.uint8)
         q_opencl = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=q)
         lut_opencl = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.lut)

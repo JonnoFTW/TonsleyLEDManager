@@ -116,7 +116,8 @@ def delete_plugin(request):
         raise exc.HTTPBadRequest('No such plugin')
     if user != plugin.user and not user.admin:
         raise exc.HTTPForbidden("You don't have access to do that")
-    request.db_session.query(LedPluginProposed).filter(LedPluginProposed.id == plugin_id).delete()
+    request.db_session.query(LedSchedule).filter(LedSchedules.led_plugin_id == plugin_id).delete()
+    request.db_session.query(LedPluginProposed).filter(LedPluginProposed.led_plugin_id == plugin_id).delete()
     query.delete()
     log(request, 'Deleted plugin ' + plugin.name)
     return exc.HTTPFound(location='/plugin')
