@@ -18,8 +18,9 @@ import numpy as np
 from pluck import pluck
 
 FPS = 60
-delay = 0.003
+delay = 0.002
 
+do_exception = False
 rows = 17
 cols = 165
 board_dimensions = (cols, rows)
@@ -36,6 +37,7 @@ try:
         pygame.init()
         size = width, height = board_dimensions
         screen = pygame.display.set_mode(disp_size)
+        font = pygame.font.Font('slkscr.ttf', 32)
 except ImportError:
     pg = False
 
@@ -53,6 +55,10 @@ fpsClock = pygame.time.Clock()
 schedule = deque()
 error_pixels = np.random.normal(128, 128, (board_dimensions[0], board_dimensions[1], 3)).astype(np.uint8)
 
+db_user = os.environ.get('DBUSER', '<username>')
+db_pass = os.environ.get('DBPASS', '<password>')
+db_host = os.environ.get('DBHOST', '<host>')
+db_name = os.environ.get('DBNAME', '<dbName>')
 
 def get_file(name):
     with open(name, 'r') as f:
@@ -146,7 +152,13 @@ def get_current_schedule(conn):
         return chosen
     return default
 
-
+def get_connection():
+    return pymysql.connect(host=db_host,
+                                     user=db_user,
+                                     passwd=db_pass,
+                                     db=db_name,
+                                     charset='utf8mb4',
+                                     cursorclass=pymysql.cursors.DictCursor)
 def refresh_schedule():
     """
     Get the latest scheduling from the database
@@ -170,18 +182,11 @@ def refresh_schedule():
         return self.pixels
     """
     global current_plugin
-    print "Updating schedule"
-    db_user = os.environ.get('DBUSER', '<username>')
-    db_pass = os.environ.get('DBPASS', '<password>')
-    db_host = os.environ.get('DBHOST', '<host>')
-    db_name = os.environ.get('DBNAME', '<dbName>')
+    global do_exception
+    #print "Updating schedule"
+
     try:
-        connection = pymysql.connect(host=db_host,
-                                     user=db_user,
-                                     passwd=db_pass,
-                                     db=db_name,
-                                     charset='utf8mb4',
-                                     cursorclass=pymysql.cursors.DictCursor)
+        connection = get_connection()
     except pymysql.err.OperationalError as e:
         print e
         print "Using default schedule"
@@ -201,10 +206,20 @@ def refresh_schedule():
              ORDER BY `position` DESC """.format(group_id['id'])
     cursor.execute(sql)
     schedule.clear()
+    cursor.close()
 
     for row in cursor:
         schedule.append(row)
     cursor.close()
+    
+    cursor = connection.cursor()
+    sql = """SELECT * FROM `led_skip`"""
+    cursor.execute(sql)
+    if cursor.fetchone():
+        do_exception = True
+        cursor.execute("TRUNCATE TABLE `led_skip`")
+    cursor.close()
+    
     connection.close()
     # if there schedule has > 2 elems,
     # roll the schedule until we get old_schedule[0] at the start
@@ -223,7 +238,14 @@ def show_schedule(sc):
         print i['name'], i['position']
     print
 
-
+def logError(msg):
+    conn = get_connection()
+    cursor = conn.cursor()
+    sql = """INSERT INTO `led_log` (`datetime`, `email`, `action`) VALUES (%s,%s,%s)"""
+    cursor.execute(sql, (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'artwall', msg))
+    cursor.close()
+    conn.commit()
+    conn.close()
 def load_next_plugin():
     """
     Attempts to load the next plugin, returns None if there are 
@@ -259,6 +281,7 @@ def load_next_plugin():
                 return plugin.Runner(board_dimensions, next['message']), end
             return plugin.Runner(board_dimensions), end
         except Exception as e:
+            traceback.print_exc()
             print "Could not load plugin:", e
 
 
@@ -293,11 +316,15 @@ while True:
         #     continue
     if plugin is not None:
         try:
+            if do_exception:
+                do_exception = False
+                raise Exception("Skip Requested")
             pixels = plugin.run()
             if not isinstance(pixels, np.ndarray) or pixels.shape != output_shape:
                 raise Exception("Pixels must be a numpy array with shape " + str(output_shape)+" received "+str(pixels.shape))
         except Exception as e:
             traceback.print_exc()
+            logError(traceback.format_exc())
             print "Error running plugin {}: {}".format(schedule[-1]['name'], e.message)
             plugin, current_plugin_end = load_next_plugin()
             continue
@@ -310,9 +337,9 @@ while True:
     for row in reversed(np.rot90(pixels)):
       #  print "Sending to leds"
         client.put_pixels(row, row_idx)
-        time.sleep(delay)
+    #    time.sleep(delay)
         client.put_pixels(row, row_idx)
-        time.sleep(delay)
+    #    time.sleep(delay)
         row_idx += 1
     if pg:
         for e in pygame.event.get():
@@ -323,6 +350,8 @@ while True:
         temp_surface = pygame.Surface(board_dimensions)
         pygame.surfarray.blit_array(temp_surface, pixels)
         pygame.transform.scale(temp_surface, disp_size, screen)
+        txt = font.render("FPS: {0:.2f}".format(fpsClock.get_fps()), 1, (255,255,255))
+        screen.blit(txt, (64,64))
         pygame.display.flip()
 
     else:

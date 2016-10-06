@@ -136,6 +136,7 @@ class Client(object):
         self._debug('put_pixels: sending pixels to server')
         try:
             self._socket.send(message)
+            self._socket.recv(8)
         except socket.error:
             self._debug('put_pixels: connection lost.  could not send pixels.')
             self._socket = None
