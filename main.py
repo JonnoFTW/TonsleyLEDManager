@@ -20,13 +20,14 @@ from pluck import pluck
 FPS = 60
 delay = 0.003
 
+do_exception = False
 rows = 17
 cols = 165
 board_dimensions = (cols, rows)
 output_shape = (cols, rows, 3)
-# disp_size = (cols * 8, rows * 8)
-
-disp_size = (1920*6, 1080)
+disp_size = (cols * 8, rows * 8)
+mysql_available = True
+# disp_size = (1920*6, 1080)
 os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
 try:
     pg = 1
@@ -60,44 +61,51 @@ def get_file(name):
 
 
 def test_sched():
-    code_roll = get_file('plugins/runner.py')
-    code_ball = get_file('plugins/balls.py')
-    code_maze = get_file('plugins/maze.py')
-    code_message = get_file('plugins/message.py')
-    code_gol = get_file('plugins/game_of_life.py')
+    # code_roll = get_file('plugins/runner.py')
+    # code_ball = get_file('plugins/balls.py')
+    # code_maze = get_file('plugins/maze.py')
+    # code_message = get_file('plugins/message.py')
+    # code_gol = get_file('plugins/game_of_life.py')
+    code_clock = get_file('plugins/plasma.py')
     print "Loading default local schedule"
     return deque([
         {
             'id': 1,
-            'name': 'Game of Life',
-            'duration': 20,
-            'code': code_gol
-        },
-        {
-            'id': 2,
-            'name': 'Message',
-            'duration': 15,
-            'message': 'Default Message!',
-            'code': code_message
-        },
-        {
-            'id': 3,
-            'name': 'Maze Runner',
-            'duration': 9,
-            'code': code_maze
-        },
-        {
-            'id': 4,
-            'name': 'Rolling Gradients',
-            'duration': 15,
-            'code': code_roll
-        },
-        {
-            'id': 5,
-            'name': 'Particle Simulation',
-            'duration': 15,
-            'code': code_ball
+            'name': 'clock',
+            'duration': 30,
+            'code': code_clock
         }
+        # {
+        #     'id': 1,
+        #     'name': 'Game of Life',
+        #     'duration': 20,
+        #     'code': code_gol
+        # },
+        # {
+        #     'id': 2,
+        #     'name': 'Message',
+        #     'duration': 15,
+        #     'message': 'Default Message!',
+        #     'code': code_message
+        # },
+        # {
+        #     'id': 3,
+        #     'name': 'Maze Runner',
+        #     'duration': 9,
+        #     'code': code_maze
+        # },
+        # {
+        #     'id': 4,
+        #     'name': 'Rolling Gradients',
+        #     'duration': 15,
+        #     'code': code_roll
+        # },
+        # {
+        #     'id': 5,
+        #     'name': 'Particle Simulation',
+        #     'duration': 15,
+        #     'code': code_ball
+        # }
     ])
 
 
@@ -169,22 +177,31 @@ def refresh_schedule():
         self.pixels.sort(1)
         return self.pixels
     """
+    global mysql_available
     global current_plugin
+    global do_exception
     print "Updating schedule"
+    if not mysql_available:
+        print "skipping connect"
+        return test_sched()
     db_user = os.environ.get('DBUSER', '<username>')
     db_pass = os.environ.get('DBPASS', '<password>')
     db_host = os.environ.get('DBHOST', '<host>')
     db_name = os.environ.get('DBNAME', '<dbName>')
+
     try:
         connection = pymysql.connect(host=db_host,
                                      user=db_user,
                                      passwd=db_pass,
                                      db=db_name,
                                      charset='utf8mb4',
-                                     cursorclass=pymysql.cursors.DictCursor)
+                                     cursorclass=pymysql.cursors.DictCursor,
+                                     connect_timeout=1)
     except pymysql.err.OperationalError as e:
         print e
+        mysql_available = False
         print "Using default schedule"
+
         return test_sched()
     cursor = connection.cursor()
     # need to fix this so that it loads the right schedule
@@ -200,10 +217,19 @@ def refresh_schedule():
               `led_group_id` = {}
              ORDER BY `position` DESC """.format(group_id['id'])
     cursor.execute(sql)
-    schedule.clear()
+    
 
+    schedule.clear()
+    
     for row in cursor:
         schedule.append(row)
+    cursor.close()
+    cursor = connection.cursor()
+    sql = """SELECT * FROM `led_skip`"""
+    cursor.execute(sql)
+    if cursor.num_rows() > 0:
+        do_exception = True
+        cursor.execute("TRUNCATE TABLE `led_skip`")
     cursor.close()
     connection.close()
     # if there schedule has > 2 elems,
@@ -293,12 +319,19 @@ while True:
         #     continue
     if plugin is not None:
         try:
+            if do_exception:
+                do_exception = False
+                raise Exception("Skip requested")
             pixels = plugin.run()
             if not isinstance(pixels, np.ndarray) or pixels.shape != output_shape:
                 raise Exception("Pixels must be a numpy array with shape " + str(output_shape)+" received "+str(pixels.shape))
         except Exception as e:
             traceback.print_exc()
             print "Error running plugin {}: {}".format(schedule[-1]['name'], e.message)
+            try:
+                plugin.finish()
+            except AttributeError:
+                pass
             plugin, current_plugin_end = load_next_plugin()
             continue
         # make sure the output is only an array-like that uses

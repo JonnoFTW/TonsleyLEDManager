@@ -64,6 +64,7 @@ def main(global_config, **settings):
     config.add_route('user_delete', '/users/{user_id}/delete')
 
     config.add_route('home', '/')
+    config.add_route('skip', '/skip')
     config.add_route('help', '/help')
 
     config.add_route('plugin',                '/plugin')

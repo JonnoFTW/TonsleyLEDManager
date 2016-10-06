@@ -10,3 +10,4 @@ freetype-py
 pyramid
 pyramid_mako
 ldap3
+matplotlib

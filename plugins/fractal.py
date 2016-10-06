@@ -84,7 +84,7 @@ class Runner:
         q_opencl = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=q)
         lut_opencl = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.lut)
         output_opencl = cl.Buffer(self.ctx, mf.WRITE_ONLY, output.nbytes)
-        self.prg.mandelbrot(self.queue, output.shape, None, q_opencl,lut_opencl, output_opencl, self.np.uint16(maxiter))
+        self.prg.mandelbrot(self.queue, output.shape, None, q_opencl, lut_opencl, output_opencl, self.np.uint16(maxiter))
         cl.enqueue_copy(self.queue, output, output_opencl).wait()
         return output
 

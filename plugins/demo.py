@@ -12,6 +12,7 @@ def show(Runner, arg=None, fps=24, rows=17, cols=165, scale=8):
         runner = Runner(board_dimensions)
     else:
         runner = Runner(board_dimensions, arg)
+    # font = pygame.font.Font('slkscr.ttf', 20)
     while True:
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
@@ -21,6 +22,9 @@ def show(Runner, arg=None, fps=24, rows=17, cols=165, scale=8):
         pixels = runner.run()
         temp_surface = pygame.Surface(board_dimensions)
         pygame.surfarray.blit_array(temp_surface, pixels)
+        # fps_text = font.render(str(fpsClock.get_fps(), 1, (255,255,255)))
+        # screen.blit(fps_text, (30, 30))
         pygame.transform.scale(temp_surface, disp_size, screen)
+
         pygame.display.flip()
         fpsClock.tick(FPS)

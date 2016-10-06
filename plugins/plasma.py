@@ -8,19 +8,26 @@ class Runner:
         self.np = np
 
         color_maps = ['viridis',  'magma', 'inferno', 'plasma']
-        cmap1 = cm.get_cmap(color_maps[3], 256)
+        cmap1 = cm.get_cmap(color_maps[0], 256)
         cmap2 = cm.get_cmap(color_maps[1], 256)
+        maps = [(cm.get_cmap(x, 256).colors * 255)[0:, :3].astype(np.uint8) for x in color_maps]
+
         cols1 = (cmap1.colors * 255)[0:, :3].astype(np.uint8)
         cols2 = (cmap2.colors * 255)[0:, :3].astype(np.uint8)
         self.cols = np.concatenate((cols1, cols1[::-1], cols2, cols2[::-1]))
         self.cols = np.concatenate((self.cols, self.cols[::-1]))
+        tup = []
+        for m in maps:
+            tup.extend([m, m[::-1]])
+        self.cols = np.concatenate(tup)
+        self.cols = np.concatenate((self.cols, self.cols[::-1]))
         self.step = 0
         print("Colors length:", len(self.cols))
-        # denoms = (np.sin(np.linspace(0, 10, 50)) *2 )+ np.pi
-        # print denoms
-        # self.denom = cycle(np.concatenate((denoms,denoms[::-1])))
-        self.denom = cycle([np.pi])
+        denoms = np.sin(np.arange(0, 2*np.pi, 0.01))+(3)
+        self.denom = cycle(denoms)
         self.up = True
+        self.half_len = len(self.cols)/32.
+        print("Half length", self.half_len)
 
     def run(self):
         np = self.np
@@ -28,27 +35,19 @@ class Runner:
         h = self.height
         img = np.empty((self.width, self.height, 3), dtype=np.uint8)
         step = 5
-        half_len = len(self.cols)/2.
+        half_len = self.half_len
+        denom = self.denom.next()
         for y in xrange(0, self.height):
             for x in xrange(0, self.width):
-                col = int(256 + (
-                    256 * np.sin(np.sqrt((x - w / 2.0) * (x - w / 2.0) + (y - h / 2.0) * (y - h / 2.0)) / self.denom.next())))
+                col = int(half_len + (
+                    half_len * np.sin(np.sqrt((x - w / 2.0) * (x - w / 2.0) + (y - h / 2.0) * (y - h / 2.0)) / denom)))
                 if col+self.step < len(self.cols):
                     img[x][y] = self.cols[(col+self.step)]
                 else:
                     img[x][y] = self.cols[len(self.cols)-(col+self.step)]
         self.step += step
         self.step %= len(self.cols)
-        # if self.up:
-        #     if self.denom >= 2*np.pi:
-        #         self.up = False
-        #     else:
-        #         self.denom += 0.1
-        # else:
-        #     if self.denom <= 1:
-        #         self.up = True
-        #     else:
-        #         self.denom -= 0.1
+
         return img
 
 

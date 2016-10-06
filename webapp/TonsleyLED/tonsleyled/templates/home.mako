@@ -24,6 +24,10 @@
             <i class="fa fa-2x fa-users"></i><br>
             <h1><a href="/group">View Groups</a></h1>
         </div>
+         <div class="col-sm-3 box bg-info text-center">
+            <i class="fa fa-2x fa-refresh"></i><br>
+            <h1><a href="/skip">Skip</a> ${context.get('skipped',' ')} </h1>
+        </div>
              % endif
     <div class="row" >
 

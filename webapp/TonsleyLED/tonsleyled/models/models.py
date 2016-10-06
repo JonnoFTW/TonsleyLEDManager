@@ -167,3 +167,8 @@ class LedPluginProposed(ABase):
     code = Column(Text, nullable=False)
 
     led_plugin = relationship(u'LedPlugin')
+
+
+class LedSkip(ABase):
+    __tablename__ = 'led_skip'
+    id = Column(Integer, primary_key=True)

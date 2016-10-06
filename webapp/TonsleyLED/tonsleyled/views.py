@@ -11,7 +11,7 @@ import pyramid.httpexceptions as exc
 from sqlalchemy import and_, update, exc as sql_exc, func
 
 import datetime
-from models import LedSchedule, LedUser, LedGroup, LedPlugin, LedGroupUser, LedLog, LedPluginProposed
+from models import LedSchedule, LedUser, LedGroup, LedPlugin, LedGroupUser, LedLog, LedPluginProposed, LedSkip
 
 """
 Helper functions and wrapppers
@@ -63,6 +63,11 @@ Misc Stuff
 def home(request):
     return {}
 
+@view_config(route_name='skip', request_method='templates/home.mako', request_method='GET')
+@authenticate
+def skip(request):
+    request.db_session.add(LedSkip())
+    return {'skipped': 'Done'}
 
 @view_config(route_name='help', renderer='templates/help.mako', request_method='GET')
 def help_get(request):
@@ -116,7 +121,7 @@ def delete_plugin(request):
         raise exc.HTTPBadRequest('No such plugin')
     if user != plugin.user and not user.admin:
         raise exc.HTTPForbidden("You don't have access to do that")
-    request.db_session.query(LedSchedule).filter(LedSchedules.led_plugin_id == plugin_id).delete()
+    request.db_session.query(LedSchedule).filter(LedSchedule.led_plugin_id == plugin_id).delete()
     request.db_session.query(LedPluginProposed).filter(LedPluginProposed.led_plugin_id == plugin_id).delete()
     query.delete()
     log(request, 'Deleted plugin ' + plugin.name)

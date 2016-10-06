@@ -1,4 +1,4 @@
-REGIONS = 63
+REGIONS = 128
 
 
 class Runner:
@@ -26,14 +26,17 @@ class Runner:
         self.cl = cl
         self.ctx = cl.Context([cl.get_platforms()[0].get_devices()[0]])
         self.queue = cl.CommandQueue(self.ctx)
-        self.lut = self.np.zeros(self.regions, cl.array.vec.char3)
+        self.lut = self.np.empty(self.regions + 1, cl.array.vec.char3)
         for idx, i in enumerate(self.cols):
             self.lut[idx][0] = i[0]
             self.lut[idx][1] = i[1]
             self.lut[idx][2] = i[2]
+        self.lut[-1][0] = 0
+        self.lut[-1][1] = 0
+        self.lut[-1][2] = 0
+
 
         self.prg = cl.Program(self.ctx, """
-               #pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
                __kernel void voronoi(__global uchar4 *img, __constant ushort2 *points, __constant uchar4 *lut,
                                          ushort const height, ushort const width, ushort const regions)
                {
@@ -85,13 +88,17 @@ class Runner:
 
     def run(self):
         np = self.np
-        jitter = np.random.randint(0, 3, size=self.points.shape, dtype=np.int16) - 1
+        # jitter = np.random.randint(0, 3, size=self.points.shape, dtype=np.int16) - 1
+        jitter = np.random.normal(0, 2, size=self.points.shape).astype(dtype=np.int16)
 
         self.points += jitter
         self.points[:, 0] %= self.width
         self.points[:, 1] %= self.height
         if self.use_cl:
-            return self.voronoi_gpu()
+            out = self.voronoi_gpu()
+            for p in self.points:
+                out[p[0], p[1]] = self.lut[-1]
+            return out
         return self.rand_voronoi()
 
 
@@ -99,4 +106,4 @@ if __name__ == "__main__":
     from demo import show
 
     # fps is 1/3 so that we get 3 seconds to admire the output before changing
-    show(Runner, fps=25, cols=165, rows=17, scale=5)
+    show(Runner, fps=60, cols=600, rows=600, scale=2)
