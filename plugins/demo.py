@@ -4,7 +4,7 @@ def show(Runner, arg=None, fps=24, rows=17, cols=165, scale=8, withArgs=False):
     fpsClock = pygame.time.Clock()
 
     board_dimensions = (cols, rows)
-
+    #yep
     disp_size = (cols * scale, rows * scale)
     pygame.init()
     screen_opts =  pygame.RESIZABLE | pygame.DOUBLEBUF
