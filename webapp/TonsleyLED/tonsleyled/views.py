@@ -63,7 +63,7 @@ Misc Stuff
 def home(request):
     return {}
 
-@view_config(route_name='skip', request_method='templates/home.mako', request_method='GET')
+@view_config(route_name='skip', renderer='templates/home.mako', request_method='GET')
 @authenticate
 def skip(request):
     request.db_session.add(LedSkip())

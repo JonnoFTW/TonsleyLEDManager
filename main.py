@@ -18,16 +18,16 @@ import numpy as np
 from pluck import pluck
 
 FPS = 60
-delay = 0.003
+delay = 0.002
 
 do_exception = False
 rows = 17
 cols = 165
 board_dimensions = (cols, rows)
 output_shape = (cols, rows, 3)
-disp_size = (cols * 8, rows * 8)
-mysql_available = True
-# disp_size = (1920*6, 1080)
+# disp_size = (cols * 8, rows * 8)
+
+disp_size = (1920*6, 1080)
 os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
 try:
     pg = 1
@@ -37,6 +37,7 @@ try:
         pygame.init()
         size = width, height = board_dimensions
         screen = pygame.display.set_mode(disp_size)
+        font = pygame.font.Font('slkscr.ttf', 32)
 except ImportError:
     pg = False
 
@@ -54,6 +55,10 @@ fpsClock = pygame.time.Clock()
 schedule = deque()
 error_pixels = np.random.normal(128, 128, (board_dimensions[0], board_dimensions[1], 3)).astype(np.uint8)
 
+db_user = os.environ.get('DBUSER', '<username>')
+db_pass = os.environ.get('DBPASS', '<password>')
+db_host = os.environ.get('DBHOST', '<host>')
+db_name = os.environ.get('DBNAME', '<dbName>')
 
 def get_file(name):
     with open(name, 'r') as f:
@@ -61,51 +66,44 @@ def get_file(name):
 
 
 def test_sched():
-    # code_roll = get_file('plugins/runner.py')
-    # code_ball = get_file('plugins/balls.py')
-    # code_maze = get_file('plugins/maze.py')
-    # code_message = get_file('plugins/message.py')
-    # code_gol = get_file('plugins/game_of_life.py')
-    code_clock = get_file('plugins/plasma.py')
+    code_roll = get_file('plugins/runner.py')
+    code_ball = get_file('plugins/balls.py')
+    code_maze = get_file('plugins/maze.py')
+    code_message = get_file('plugins/message.py')
+    code_gol = get_file('plugins/game_of_life.py')
     print "Loading default local schedule"
     return deque([
         {
             'id': 1,
-            'name': 'clock',
-            'duration': 30,
-            'code': code_clock
+            'name': 'Game of Life',
+            'duration': 20,
+            'code': code_gol
+        },
+        {
+            'id': 2,
+            'name': 'Message',
+            'duration': 15,
+            'message': 'Default Message!',
+            'code': code_message
+        },
+        {
+            'id': 3,
+            'name': 'Maze Runner',
+            'duration': 9,
+            'code': code_maze
+        },
+        {
+            'id': 4,
+            'name': 'Rolling Gradients',
+            'duration': 15,
+            'code': code_roll
+        },
+        {
+            'id': 5,
+            'name': 'Particle Simulation',
+            'duration': 15,
+            'code': code_ball
         }
-        # {
-        #     'id': 1,
-        #     'name': 'Game of Life',
-        #     'duration': 20,
-        #     'code': code_gol
-        # },
-        # {
-        #     'id': 2,
-        #     'name': 'Message',
-        #     'duration': 15,
-        #     'message': 'Default Message!',
-        #     'code': code_message
-        # },
-        # {
-        #     'id': 3,
-        #     'name': 'Maze Runner',
-        #     'duration': 9,
-        #     'code': code_maze
-        # },
-        # {
-        #     'id': 4,
-        #     'name': 'Rolling Gradients',
-        #     'duration': 15,
-        #     'code': code_roll
-        # },
-        # {
-        #     'id': 5,
-        #     'name': 'Particle Simulation',
-        #     'duration': 15,
-        #     'code': code_ball
-        # }
     ])
 
 
@@ -154,7 +152,13 @@ def get_current_schedule(conn):
         return chosen
     return default
 
-
+def get_connection():
+    return pymysql.connect(host=db_host,
+                                     user=db_user,
+                                     passwd=db_pass,
+                                     db=db_name,
+                                     charset='utf8mb4',
+                                     cursorclass=pymysql.cursors.DictCursor)
 def refresh_schedule():
     """
     Get the latest scheduling from the database
@@ -177,31 +181,15 @@ def refresh_schedule():
         self.pixels.sort(1)
         return self.pixels
     """
-    global mysql_available
     global current_plugin
     global do_exception
-    print "Updating schedule"
-    if not mysql_available:
-        print "skipping connect"
-        return test_sched()
-    db_user = os.environ.get('DBUSER', '<username>')
-    db_pass = os.environ.get('DBPASS', '<password>')
-    db_host = os.environ.get('DBHOST', '<host>')
-    db_name = os.environ.get('DBNAME', '<dbName>')
+    #print "Updating schedule"
 
     try:
-        connection = pymysql.connect(host=db_host,
-                                     user=db_user,
-                                     passwd=db_pass,
-                                     db=db_name,
-                                     charset='utf8mb4',
-                                     cursorclass=pymysql.cursors.DictCursor,
-                                     connect_timeout=1)
+        connection = get_connection()
     except pymysql.err.OperationalError as e:
         print e
-        mysql_available = False
         print "Using default schedule"
-
         return test_sched()
     cursor = connection.cursor()
     # need to fix this so that it loads the right schedule
@@ -217,20 +205,21 @@ def refresh_schedule():
               `led_group_id` = {}
              ORDER BY `position` DESC """.format(group_id['id'])
     cursor.execute(sql)
-    
-
     schedule.clear()
-    
+    cursor.close()
+
     for row in cursor:
         schedule.append(row)
     cursor.close()
+    
     cursor = connection.cursor()
     sql = """SELECT * FROM `led_skip`"""
     cursor.execute(sql)
-    if cursor.num_rows() > 0:
+    if cursor.fetchone():
         do_exception = True
         cursor.execute("TRUNCATE TABLE `led_skip`")
     cursor.close()
+    
     connection.close()
     # if there schedule has > 2 elems,
     # roll the schedule until we get old_schedule[0] at the start
@@ -249,7 +238,14 @@ def show_schedule(sc):
         print i['name'], i['position']
     print
 
-
+def logError(msg):
+    conn = get_connection()
+    cursor = conn.cursor()
+    sql = """INSERT INTO `led_log` (`datetime`, `email`, `action`) VALUES (%s,%s,%s)"""
+    cursor.execute(sql, (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'artwall', msg))
+    cursor.close()
+    conn.commit()
+    conn.close()
 def load_next_plugin():
     """
     Attempts to load the next plugin, returns None if there are 
@@ -285,6 +281,7 @@ def load_next_plugin():
                 return plugin.Runner(board_dimensions, next['message']), end
             return plugin.Runner(board_dimensions), end
         except Exception as e:
+            traceback.print_exc()
             print "Could not load plugin:", e
 
 
@@ -321,17 +318,14 @@ while True:
         try:
             if do_exception:
                 do_exception = False
-                raise Exception("Skip requested")
+                raise Exception("Skip Requested")
             pixels = plugin.run()
             if not isinstance(pixels, np.ndarray) or pixels.shape != output_shape:
                 raise Exception("Pixels must be a numpy array with shape " + str(output_shape)+" received "+str(pixels.shape))
         except Exception as e:
             traceback.print_exc()
+            logError(traceback.format_exc())
             print "Error running plugin {}: {}".format(schedule[-1]['name'], e.message)
-            try:
-                plugin.finish()
-            except AttributeError:
-                pass
             plugin, current_plugin_end = load_next_plugin()
             continue
         # make sure the output is only an array-like that uses
@@ -343,9 +337,9 @@ while True:
     for row in reversed(np.rot90(pixels)):
       #  print "Sending to leds"
         client.put_pixels(row, row_idx)
-        time.sleep(delay)
+    #    time.sleep(delay)
         client.put_pixels(row, row_idx)
-        time.sleep(delay)
+    #    time.sleep(delay)
         row_idx += 1
     if pg:
         for e in pygame.event.get():
@@ -356,6 +350,8 @@ while True:
         temp_surface = pygame.Surface(board_dimensions)
         pygame.surfarray.blit_array(temp_surface, pixels)
         pygame.transform.scale(temp_surface, disp_size, screen)
+        txt = font.render("FPS: {0:.2f}".format(fpsClock.get_fps()), 1, (255,255,255))
+        screen.blit(txt, (64,64))
         pygame.display.flip()
 
     else:
