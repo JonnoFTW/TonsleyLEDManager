@@ -1,10 +1,12 @@
+from matplotlib import pyplot as plt
+from matplotlib import colors
 class Runner:
     def __init__(self, dims):
         self.width = dims[0]
         self.height = dims[1]
 
         import pyopencl as cl
-        from pyopencl import array
+        from pyopencl import cltypes
         import numpy as np
         from matplotlib import cm
 
@@ -12,38 +14,36 @@ class Runner:
         self.np = np
         self.cl = cl
 
-        platform = cl.get_platforms()
-        my_gpu_devices = platform[0].get_devices(cl.device_type.GPU)
-        self.ctx = cl.Context([my_gpu_devices[0]])
+        self.ctx = cl.Context([cl.get_platforms()[1].get_devices()[0]])
         self.queue = cl.CommandQueue(self.ctx)
         self.prg = cl.Program(self.ctx, """
             #pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
             __kernel void mandelbrot(__global float2 *q, __constant uchar4 *lut,
-                             __global uchar4 *output, ushort const maxiter)
+                             __global uchar4 *output, __global uint* output2, uint const maxiter)
             {
-                int gid = get_global_id(0);
-                float nreal, real = 0;
-                float imag = 0;
+                const int gid = get_global_id(0);
+                float real = q[gid].x;
+                float imag = q[gid].y;
                 output[gid] = (uchar4)(0,0,0,0);
-                for(int curiter = 0; curiter < maxiter; curiter++) {
-                    nreal = real*real - imag*imag + q[gid].x;
-                    imag = 2* real*imag + q[gid].y;
-                    real = nreal;
-                    if (real*real + imag*imag > 4.0f){
-                        //output[gid] = curiter;
+                output2[gid] = 0;
+                for(uint curiter = 0; curiter < maxiter; curiter++) {
+                    float real2 = real*real, imag2 = imag*imag;
+                    if (real2 + imag2 > 4.0f) {
                         output[gid] = lut[curiter];
-                        break;
+                        output2[gid] = curiter;
+                        return;
                     }
+                    imag = 2 * real*imag + q[gid].y;
+                    real = real2 - imag2 + q[gid].x;
                 }
             }
         """).build()
         import time
         self.time = time
-        self.centerx = -0.75
-        self.centery = 0.1
-        self.padding = 0.3
-        self.maxiter = 512
-
+        self.centerx = (-0.74877 + -0.74872) / 2
+        self.centery = (0.06505 + 0.06510) / 2
+        self.padding = 2
+        self.maxiter = cltypes.uint(64)
 
         # self.xmin = -np.pi
         # self.xmax = np.pi
@@ -51,13 +51,14 @@ class Runner:
         # self.ymax = np.pi
         self.update_pos()
 
-        cmap = self.cm.get_cmap('magma', self.maxiter + 1)
-        cols = (cmap.colors * 255)[0:, :3].astype(np.uint8)
-        self.lut = np.zeros((self.maxiter+1,), cl.array.vec.char3)
+        cmap = self.cm.get_cmap('gnuplot2', self.maxiter)
+        cols = [(np.array(cmap(i)[:-1]) * 255).astype(cl.cltypes.uchar) for i in range(self.maxiter)]
+        self.lut = np.zeros((self.maxiter,), cl.cltypes.uchar4)
         for idx, i in enumerate(cols):
             self.lut[idx][0] = i[0]
             self.lut[idx][1] = i[1]
             self.lut[idx][2] = i[2]
+        self.lut_opencl = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=self.lut)
 
     def update_pos(self):
         self.xmin = self.centerx - self.padding
@@ -68,64 +69,66 @@ class Runner:
         self.padding *= 0.99
 
     def mandelbrot_set3(self, xmin, xmax, ymin, ymax, width, height):
-        r1 = self.np.linspace(xmin, xmax, width, dtype=self.np.float32)
-        r2 = self.np.linspace(ymin, ymax, height, dtype=self.np.float32)
+        r1 = self.np.linspace(xmin, xmax, width, dtype=self.cl.cltypes.float)
+        r2 = self.np.linspace(ymin, ymax, height, dtype=self.cl.cltypes.float)
         c = r1 + r2[:, None] * 1j
         c = self.np.ravel(c)
-        n3 = self.generate(c, self.maxiter)
+        n3, out2 = self.generate(c, self.maxiter)
+        out2 = out2.reshape(width, height)
+        # return n3
+        # self.show_mandle(self.xmin,self.xmax,self.ymin,self.ymax,r1,r2,out2)
         n3 = n3.reshape((width, height, 4))
         return n3[:,:,:3]
-    
+
+    def show_mandle(self, xmin,xmax,ymin,ymax,x,y,z,width=3,height=3,maxiter=80,cmap='hot'):
+        dpi = 2
+        img_width = dpi * width
+        img_height = dpi * height
+
+        np = self.np
+        # x, y, z = mandelbrot_set(xmin, xmax, ymin, ymax, img_width, img_height, maxiter)
+        fig, ax = plt.subplots(figsize=(width, height), dpi=72)
+        ticks = np.arange(0, img_width, 3 * dpi)
+        x_ticks = xmin + (xmax - xmin) * ticks / img_width
+        plt.xticks(ticks, x_ticks)
+        y_ticks = ymin + (ymax - ymin) * ticks / img_height
+        plt.yticks(ticks, y_ticks)
+
+        norm = colors.PowerNorm(0.3)
+        ax.imshow(z, cmap=cmap, origin='lower', norm=norm)
+        raw_input()
+
     def generate(self, q, maxiter):
         cl = self.cl
         mf = cl.mem_flags
 
-        output = self.np.zeros((q.shape[0], 4), self.np.uint8)
+        output = self.np.zeros((q.shape[0], 4), cl.cltypes.uchar)
+        output2 = self.np.zeros(q.shape[0], cl.cltypes.uint)
         q_opencl = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=q)
-        lut_opencl = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.lut)
+        output2_opencl = cl.Buffer(self.ctx, mf.WRITE_ONLY, output2.nbytes)
         output_opencl = cl.Buffer(self.ctx, mf.WRITE_ONLY, output.nbytes)
-        self.prg.mandelbrot(self.queue, output.shape, None, q_opencl, lut_opencl, output_opencl, self.np.uint16(maxiter))
-        cl.enqueue_copy(self.queue, output, output_opencl).wait()
-        return output
+        self.prg.mandelbrot(self.queue, output.shape, None, q_opencl,
+                            self.lut_opencl,
+                            output_opencl,
+                            output2_opencl,
+                            maxiter).wait()
+        cl.enqueue_copy(self.queue, output2, output2_opencl)
+        # return self.lut[output2]
 
+        cl.enqueue_copy(self.queue, output, output_opencl).wait()
+        return output, output2
 
     def run(self):
         start = self.time.time()
-        self.cells = self.mandelbrot_set3(self.xmin, self.xmax, self.ymin, self.ymax, width=self.width, height=self.height)
+        self.cells = self.mandelbrot_set3(self.xmin, self.xmax, self.ymin, self.ymax, width=self.width,
+                                          height=self.height)
         # print "calculating", self.time.time() - start, self.cells.shape
         self.update_pos()
 
-        return self.cells
+        return self.cells, "{:.2f} - {:.2f}\n{:.2f} - {:.2f}".format(self.xmin, self.xmax, self.ymin, self.ymax)
+
 
 if __name__ == "__main__":
+    from demo import show
 
-    def show(Runner, arg=None, fps=24, rows=17, cols=165, scale=8):
-        import pygame, sys
-        FPS = fps
-        fpsClock = pygame.time.Clock()
-
-        board_dimensions = (cols, rows)
-
-        disp_size = (cols * scale, rows * scale)
-        pygame.init()
-        size = width, height = board_dimensions
-        screen = pygame.display.set_mode(disp_size)
-        if arg is None:
-            runner = Runner(board_dimensions)
-        else:
-            runner = Runner(board_dimensions, arg)
-        while True:
-            for e in pygame.event.get():
-                if e.type == pygame.QUIT:
-                    sys.exit()
-            screen.fill((0, 0, 0))
-            # draw the pixels
-            pixels = runner.run()
-            temp_surface = pygame.Surface(board_dimensions)
-            pygame.surfarray.blit_array(temp_surface, pixels)
-            pygame.transform.scale(temp_surface, disp_size, screen)
-            pygame.display.flip()
-            fpsClock.tick(FPS)
-
-
-    show(Runner, fps=30, rows=800, cols=800, scale=1)
+    show(Runner, fps=90, rows=900, cols=900, scale=1)

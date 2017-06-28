@@ -31,6 +31,9 @@ def show(Runner, arg=None, fps=24, rows=17, cols=165, scale=8, withArgs=False):
             txts.append(txt)
         else:
             pixels = runner.run()
+            if type(pixels) is tuple:
+                pixels, txt = pixels
+                txts.append(txt)
 
         temp_surface = pygame.Surface(board_dimensions)
         pygame.surfarray.blit_array(temp_surface, pixels)

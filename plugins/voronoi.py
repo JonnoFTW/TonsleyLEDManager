@@ -5,6 +5,7 @@ class Runner:
     def __init__(self, dims):
         import numpy as np
         self.np = np
+
         self.dims = dims
         self.width = dims[0]
         self.height = dims[1]
@@ -19,26 +20,37 @@ class Runner:
     def init_gpu(self):
         try:
             import pyopencl as cl
+            # print cl
             from pyopencl import array
-        except:
+        except Exception, e:
+            import os
+            print os.getenv('LD_LIBRARY_PATH')
+            print e.message
             return
         self.use_cl = True
         self.cl = cl
-        self.ctx = cl.Context([cl.get_platforms()[0].get_devices()[0]])
+        device = cl.get_platforms()[0].get_devices()[0]
+        self.ctx = cl.Context([device])
         self.queue = cl.CommandQueue(self.ctx)
-        self.lut = self.np.empty(self.regions + 1, cl.array.vec.char3)
+        print(device)
+        self.lut = self.np.zeros(self.regions + 1, cl.array.vec.char3)
         for idx, i in enumerate(self.cols):
             self.lut[idx][0] = i[0]
             self.lut[idx][1] = i[1]
             self.lut[idx][2] = i[2]
-        self.lut[-1][0] = 0
-        self.lut[-1][1] = 0
-        self.lut[-1][2] = 0
-
+        # self.lut[-1][0] = 0
+        # self.lut[-1][1] = 0
+        # self.lut[-1][2] = 0
+        self.lut_opencl = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=self.lut)
 
         self.prg = cl.Program(self.ctx, """
-               __kernel void voronoi(__global uchar4 *img, __constant ushort2 *points, __constant uchar4 *lut,
-                                         ushort const height, ushort const width, ushort const regions)
+
+               __kernel void voronoi(__global uchar4 *img,
+                                     const __global ushort2 *points,
+                                     __constant uchar4 *lut,
+                                     ushort const height,
+                                     ushort const width,
+                                     ushort const regions)
                {
                    int x = get_global_id(0);
                    int y = get_global_id(1);
@@ -63,9 +75,8 @@ class Runner:
         mf = cl.mem_flags
         img = self.np.zeros((self.width * self.height, 4), self.np.uint8)
         img_opencl = cl.Buffer(self.ctx, mf.WRITE_ONLY, img.nbytes)
-        lut_opencl = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.lut)
         points_opencl = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.points)
-        self.prg.voronoi(self.queue, (self.height, self.width), None, img_opencl, points_opencl, lut_opencl,
+        self.prg.voronoi(self.queue, (self.height, self.width), None, img_opencl, points_opencl, self.lut_opencl,
                          np.uint16(self.height), np.uint16(self.width), np.uint16(self.regions))
 
         cl.enqueue_copy(self.queue, img, img_opencl).wait()
@@ -89,9 +100,10 @@ class Runner:
     def run(self):
         np = self.np
         # jitter = np.random.randint(0, 3, size=self.points.shape, dtype=np.int16) - 1
-        jitter = np.random.normal(0, 2, size=self.points.shape).astype(dtype=np.int16)
-
-        self.points += jitter
+        xjitter = np.random.normal(1, 2, size=self.points.shape[0]).astype(dtype=np.int16)
+        yjitter = np.random.normal(0, 1, size=self.points.shape[0]).astype(dtype=np.int16)
+        self.points[:, 0] += xjitter
+        self.points[:, 1] += yjitter
         self.points[:, 0] %= self.width
         self.points[:, 1] %= self.height
         if self.use_cl:
@@ -106,4 +118,4 @@ if __name__ == "__main__":
     from demo import show
 
     # fps is 1/3 so that we get 3 seconds to admire the output before changing
-    show(Runner, fps=60, cols=600, rows=600, scale=2)
+    show(Runner, fps=60, cols=900, rows=900, scale=1)
