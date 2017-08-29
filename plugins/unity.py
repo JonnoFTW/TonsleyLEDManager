@@ -4,7 +4,7 @@ class Runner:
         import numpy as np
         self.np = np
 
-        from flask import Flask
+        from flask import Flask, render_template
         from flask_sockets import Sockets
         import json
         from random import randint
@@ -49,6 +49,7 @@ class Runner:
         self.current_players = {}
         game_x_min = 0
         game_x_max = 100
+        boat_velocity = 0.5
         app_port = 5000
 
         ug_socket = {
@@ -61,7 +62,9 @@ class Runner:
                 'colour': [[randint(0, 255) for _ in range(3)]],
                 'hookpos': 0,
                 'xpos': randint(game_x_min, game_x_max),
-                'ypos': 8
+                'ypos': 8,
+                'velocity': 0,
+                'score': 0
             }
             self.current_players[ws] = player
             # inform the unity game about this?
@@ -87,57 +90,36 @@ class Runner:
                     break
                 message = message.lower()
                 player_state = self.current_players[ws]
+                # print("msg>", message)
                 if message == 'left':
-                    player_state['xpos'] = (player_state['xpos'] - 1) % self.dims[0]
+                    player_state['velocity'] = -boat_velocity
                 elif message == 'right':
-                    player_state['xpos'] = (player_state['xpos']) + 1 % self.dims[0]
+                    player_state['velocity'] = boat_velocity
+                elif message == 'stop':
+                    player_state['velocity'] = 0
                 ws.send(json.dumps(self.current_players[ws]))
             del self.current_players[ws]
 
+
         @app.route('/')
         def home():
-            return """
-        <html>
-          <head>
-            <title>
-              Fishing Game
-            </title>
-
-          </head>
-          <body>
-            <h2><a href="#">Left</a></h2>
-            <h2><a href="#">Right</a></h2>
-            <h2><a href="#">Drop</a></h2>
-            <pre id="output"></pre>
-          </body>
-          <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-          <script type="text/javascript">
-            $(document).ready(function() {
-              ws = new WebSocket('ws://'+document.domain+':{APP_PORT}/client')
-              ws.onmessage = function (event) {
-                console.log(event.data);
-                $('#output').text(event.data);
-              }
-               $('h2').click(function() {
-                  ws.send($(this).text());
-               });
-            });
-          </script>
-        </html>    
-            """.replace('{APP_PORT}', str(app_port))
+            with open('fishgame.html') as f:
+                fish_html = f.read()
+            return fish_html
 
         def flaskThread():
             from gevent import pywsgi
             from geventwebsocket.handler import WebSocketHandler
 
-            server = pywsgi.WSGIServer(('localhost', app_port), app, handler_class=WebSocketHandler)
+            server = pywsgi.WSGIServer(('0.0.0.0', app_port), app, handler_class=WebSocketHandler)
+            print("Starting server on: http://{}:{}".format(*server.address))
             server.serve_forever()
 
         import thread
         thread.start_new_thread(flaskThread, ())
 
     def update_things(self):
-        for thing in self.things:
+        for thing in self.things + self.current_players.values():
             thing['xpos'] = (thing['xpos'] + thing['velocity']) % self.dims[0]
             if thing['xpos'] >= self.dims[0]:
                 thing['xpos'] = 0 - len(self.things_templates[thing['type']]['template'][0])
@@ -149,10 +131,6 @@ class Runner:
         pixels = np.full((self.dims[0], self.dims[1], 3), water, dtype=np.uint8)
         pixels[:, 0:13] = sky
         self.update_things()
-        # draw some happy little boats
-        # for p in self.current_players.values():
-        #     xpos = self.dims[0] - int(p['xposition'] / 100. * self.dims[0])
-        #     pixels[xpos - 2:xpos + 2, 9:14] = p['colour']
         for thing in self.things + self.current_players.values():
             template = self.things_templates[thing['type']]
             if thing['type'] == 'boat':

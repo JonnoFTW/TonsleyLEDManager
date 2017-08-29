@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css"
+          integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=yes">
+    <title>
+        Fishing Game
+    </title>
+    <style type="text/css">
+        html, body {
+            height: 100%
+        }
+
+        .container-fluid {
+            /*min-height: 100%;*/
+            /*height: auto !important; !* cross-browser *!*/
+            /*height: 100%; !* cross-browser *!*/
+            /*overflow-y: hidden; !* don't show content that exceeds my height *!*/
+            background-color: #E3F2FD;
+        }
+
+        .fg-btn {
+            background-color: #42A5F5;
+
+        }
+        .fg-btn  i {
+            font-size: 9.5em;
+        }
+    </style>
+
+</head>
+<body>
+<div class="container-fluid h-100">
+    <div class="row h-100 text-center">
+        <div id="button-left" class="fg-btn col-4 my-auto">
+                <i class="vcenter fa fa-arrow-left fa-5x" aria-hidden="true"></i>
+        </div>
+
+        <div id="button-hook" class="fg-btn col-4  my-auto">
+            <div class="row h-100">
+                <div class="col-6">
+                    Boat
+                    <!-- Control the hook similar to this https://jsfiddle.net/dhpxt1q3/-->
+                </div>
+                <div class="col-6">
+                    Score: <span id="score">0</span>
+                </div>
+                <div class="col-12">
+                    <i class="fa fa-arrow-down fa-5x" aria-hidden="true"></i>
+                </div>
+            </div>
+        </div>
+        <div id="button-right" class="fg-btn col-4 my-auto">
+            <i class="fa fa-arrow-right fa-5x" aria-hidden="true"></i>
+        </div>
+    </div>
+</div>
+</body>
+<script src="https://code.jquery.com/jquery-3.1.1.slim.min.js"
+        integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js"
+        integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb"
+        crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js"
+        integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn"
+        crossorigin="anonymous"></script>
+<script type="text/javascript">
+    $(document).ready(function () {
+        ws = new WebSocket('ws://' + document.domain + ':5000/client')
+        ws.onmessage = function (event) {
+            console.log(event.data);
+            $('#output').text(event.data);
+            $('#score').text(event.data.score);
+        };
+        $('div[id^="button-"]').on({
+            'touchstart mousedown': function (e) {
+                event.stopPropagation();
+                event.preventDefault();
+                ws.send($(this).attr('id').substr(7));
+            },
+            'touchend mouseup': function (e) {
+                event.stopPropagation();
+                event.preventDefault();
+                ws.send("stop");
+            }
+        });
+    });
+</script>
+</html>
