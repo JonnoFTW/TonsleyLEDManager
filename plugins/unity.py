@@ -89,19 +89,23 @@ class Runner:
         @sockets.route('/client')
         def device_client_socket(ws):
             make_player(ws)
+            ws.send(json.dumps(self.current_players[ws]))
             while not ws.closed:
                 message = ws.receive()
                 if message is None:
                     break
                 message = message.lower()
                 player_state = self.current_players[ws]
-                # print("msg>", message)
+                print("msg> " + message)
                 if message == 'left':
                     player_state['velocity'] = -boat_velocity
                 elif message == 'right':
                     player_state['velocity'] = boat_velocity
                 elif message == 'stop':
                     player_state['velocity'] = 0
+                elif message == 'hook':
+                    # handle hook drop gameplay
+                    player_state['score'] += 1
                 ws.send(json.dumps(self.current_players[ws]))
             del self.current_players[ws]
 

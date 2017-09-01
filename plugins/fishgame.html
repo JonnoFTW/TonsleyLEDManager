@@ -4,7 +4,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css"
           integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
-
+    <link href="https://fonts.googleapis.com/css?family=Kanit" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=yes">
     <title>
         Fishing Game
@@ -19,11 +19,11 @@
             /*height: auto !important; !* cross-browser *!*/
             /*height: 100%; !* cross-browser *!*/
             /*overflow-y: hidden; !* don't show content that exceeds my height *!*/
-            background-color: #E3F2FD;
+            background-color: #42A5F5;
         }
 
         .fg-btn {
-            background-color: #42A5F5;
+            /*background-color: #42A5F5;*/
 
         }
         .fg-btn  i {
@@ -34,6 +34,11 @@
         .fg-btn i.active {
             transform: translate(2px,2px);
             text-shadow: 1px 1px 1px #ccc;
+        }
+        #title {
+            font-family: 'Kanit', sans-serif;
+
+            width: 100%;
         }
 
     </style>
@@ -46,16 +51,17 @@
                 <i class="vcenter fa fa-arrow-left fa-5x" aria-hidden="true"></i>
         </div>
 
-        <div id="button-hook" class="fg-btn col-4  my-auto">
+        <div class="col-4  my-auto">
             <div class="row h-100">
-                <div class="col-6">
-                    Boat
+                <h1 id="title" class="text-center">Extreme Fishing Challenge</h1>
+                <div id="boat" class="col-6">
+                    <i class="fa fa-ship fa-3x" aria-hidden="true"></i>
                     <!-- Control the hook similar to this https://jsfiddle.net/dhpxt1q3/-->
                 </div>
                 <div class="col-6">
                     Score: <span id="score">0</span>
                 </div>
-                <div class="col-12">
+                <div id="button-hook"  class="fg-btn col-12">
                     <i class="fa fa-arrow-down fa-5x" aria-hidden="true"></i>
                 </div>
             </div>
@@ -79,9 +85,11 @@
     $(document).ready(function () {
         ws = new WebSocket('ws://' + document.domain + ':5000/client')
         ws.onmessage = function (event) {
-            console.log(event.data);
+            var data = JSON.parse(event.data);
+            console.log(data);
             $('#output').text(event.data);
-            $('#score').text(event.data.score);
+            $('#boat').css({'color':'rgb('+data.colour.join(',')+')'});
+            $('#score').text(data.score);
         };
         $('div[id^="button-"]').on({
             'touchstart mousedown': function (e) {
