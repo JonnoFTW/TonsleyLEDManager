@@ -37,8 +37,10 @@
         }
         #title {
             font-family: 'Kanit', sans-serif;
-
             width: 100%;
+        }
+        audio {
+            display:none;
         }
 
     </style>
@@ -82,14 +84,26 @@
         integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn"
         crossorigin="anonymous"></script>
 <script type="text/javascript">
+    var playSound = function(audio_id) {
+        document.getElementById(audio_id).play();
+    };
     $(document).ready(function () {
-        ws = new WebSocket('ws://' + document.domain + ':5000/client')
+        var events = {
+            winner: function(d){ playSound('sound_winner')},
+            loser: function(d) {playSound('sound_loser')},
+            scored: function(d) {playSound('sound_scored')},
+            hooked: function(d) {playSound('sound_hooked')}
+        };
+        ws = new WebSocket('ws://' + document.domain + ':5000/client');
         ws.onmessage = function (event) {
             var data = JSON.parse(event.data);
             console.log(data);
             $('#output').text(event.data);
             $('#boat').css({'color':'rgb('+data.colour.join(',')+')'});
             $('#score').text(data.score);
+            if(data.event in events) {
+                events[data.event](data);
+            }
         };
         $('div[id^="button-"]').on({
             'touchstart mousedown': function (e) {
