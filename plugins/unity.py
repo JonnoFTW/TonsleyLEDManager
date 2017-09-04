@@ -1,10 +1,13 @@
+import json
+
+
 class Runner:
     def __init__(self, dims):
         self.dims = dims
         import numpy as np
         self.np = np
 
-        from flask import Flask, render_template
+        from flask import Flask, render_template, request
         from flask_sockets import Sockets
         import json
         from random import randint
@@ -54,7 +57,9 @@ class Runner:
         self.current_players = {}
         game_x_min = 0
         game_x_max = 100
+        self.game_y_max = 100
         boat_velocity = 0.5
+        initial_hook_velocity = 0.1
         app_port = 5000
 
         ug_socket = {
@@ -65,11 +70,13 @@ class Runner:
             player = {
                 'type': 'boat',
                 'colour': [[randint(0, 255) for _ in range(3)]],
-                'hookpos': 0,
+                'hook_position':0,
+                'hook_velocity': 0,
                 'xpos': randint(game_x_min, game_x_max),
                 'ypos': 8,
                 'velocity': 0,
-                'score': 0
+                'score': 0,
+                'id': ws.hander.client_address
             }
             self.current_players[ws] = player
             # inform the unity game about this?
@@ -84,6 +91,8 @@ class Runner:
             while not ws.closed:
                 # do stuff here i guess...
                 message = ws.receive().lower()
+                if message == 'player_state':
+                    ws.send(json.dumps(self.current_players.items()))
             ug_socket['ws'] = None
 
         @sockets.route('/client')
@@ -97,21 +106,35 @@ class Runner:
                 message = message.lower()
                 player_state = self.current_players[ws]
                 print("msg> " + message)
+                event_handlers = {
+                    'left': None
+                }
                 if message == 'left':
-                    player_state['velocity'] = -boat_velocity
+                    if player_state['hook_velocity'] == 0:
+                        player_state['velocity'] = -boat_velocity
                 elif message == 'right':
-                    player_state['velocity'] = boat_velocity
+                    if player_state['hook_velocity'] == 0:
+                        player_state['velocity'] = boat_velocity
                 elif message == 'stop':
                     player_state['velocity'] = 0
                 elif message == 'hook':
                     # handle hook drop gameplay
-                    player_state['score'] += 1
-                ws.send(json.dumps(self.current_players[ws]))
+                    # player_state['score'] += 1
+                    player_state['velocity'] = 0
+                    player_state['hook_velocity'] = initial_hook_velocity
+                    # ug_socket['ws'].send('hook dropped')
+                self.send_client_state(ws)
             del self.current_players[ws]
 
-
+        import uuid
+        qr_codes = set([uuid.uuid4().hex])
         @app.route('/')
         def home():
+            #check they sent a a valid qr code
+            # artworkpc.isd.ad.flinders.edu.au:5000/?qr=a6rt5grtg566bt
+            qr = request.args.get('qr')
+            # if qr not in qr_codes:
+            #     return "YOU CANT PLAY WITHOUT A QR CODE"
             with open('fishgame.html') as f:
                 fish_html = f.read()
             return fish_html
@@ -127,12 +150,23 @@ class Runner:
         import thread
         thread.start_new_thread(flaskThread, ())
 
+    def send_client_state(self, ws):
+        ws.send(json.dumps(self.current_players[ws]))
     def update_things(self):
         for thing in self.things + self.current_players.values():
             thing['xpos'] = (thing['xpos'] + thing['velocity']) % self.dims[0]
             if thing['xpos'] >= self.dims[0]:
                 thing['xpos'] = 0 - len(self.things_templates[thing['type']]['template'][0])
+        for ws, player in self.current_players.items():
+            player['hook_position'] += player['hook_velocity']
 
+            if player['hook_position'] <= 0:
+                player['hook_position'] = 0
+                player['hook_velocity'] = 0
+
+            if player['hook_position'] >= self.game_y_max:
+                player['hook_position'] = 0
+            self.send_client_state(ws)
     def run(self):
         np = self.np
         water = [14, 69, 156]
