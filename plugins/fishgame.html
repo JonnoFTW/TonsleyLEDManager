@@ -26,19 +26,25 @@
             /*background-color: #42A5F5;*/
 
         }
-        .fg-btn  i {
+
+        .fg-btn i {
             font-size: 9.5em;
             text-shadow: 3px 3px 3px #ccc;
 
         }
+
         .fg-btn i.active {
-            transform: translate(2px,2px);
+            transform: translate(2px, 2px);
             text-shadow: 1px 1px 1px #ccc;
         }
+
         #title {
             font-family: 'Kanit', sans-serif;
-
             width: 100%;
+        }
+
+        audio {
+            display: none;
         }
 
     </style>
@@ -46,14 +52,14 @@
 </head>
 <body>
 <div class="container-fluid h-100">
-    <div class="row h-100 text-center">
+    <div class="row h-100 text-center"><h1 id="title" class="text-center">Extreme Fishing Challenge</h1>
         <div id="button-left" class="fg-btn col-4 my-auto">
-                <i class="vcenter fa fa-arrow-left fa-5x" aria-hidden="true"></i>
+            <i class="fa fa-caret-left fa-5x" aria-hidden="true"></i>
         </div>
 
         <div class="col-4  my-auto">
             <div class="row h-100">
-                <h1 id="title" class="text-center">Extreme Fishing Challenge</h1>
+
                 <div id="boat" class="col-6">
                     <i class="fa fa-ship fa-3x" aria-hidden="true"></i>
                     <!-- Control the hook similar to this https://jsfiddle.net/dhpxt1q3/-->
@@ -61,13 +67,13 @@
                 <div class="col-6">
                     Score: <span id="score">0</span>
                 </div>
-                <div id="button-hook"  class="fg-btn col-12">
-                    <i class="fa fa-arrow-down fa-5x" aria-hidden="true"></i>
+                <div id="button-hook" class="fg-btn col-12">
+                    <i class="fa fa-caret-down fa-5x" aria-hidden="true"></i>
                 </div>
             </div>
         </div>
         <div id="button-right" class="fg-btn col-4 my-auto">
-            <i class="fa fa-arrow-right fa-5x" aria-hidden="true"></i>
+            <i class="fa fa-caret-right fa-5x" aria-hidden="true"></i>
         </div>
     </div>
 </div>
@@ -82,26 +88,49 @@
         integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn"
         crossorigin="anonymous"></script>
 <script type="text/javascript">
+    var playSound = function (audio_id) {
+        document.getElementById(audio_id).play();
+    };
     $(document).ready(function () {
-        ws = new WebSocket('ws://' + document.domain + ':5000/client')
+        var events = {
+            winner: function (d) {
+                playSound('sound_winner')
+            },
+            loser: function (d) {
+                playSound('sound_loser')
+            },
+            scored: function (d) {
+                playSound('sound_scored')
+            },
+            hooked: function (d) {
+                playSound('sound_hooked')
+            },
+            hook_position: function (d) {
+                $('#score').text(d.hook_position)
+            }
+        };
+        ws = new WebSocket('ws://' + document.domain + ':5000/client');
         ws.onmessage = function (event) {
             var data = JSON.parse(event.data);
-            console.log(data);
+//            console.log(data);
             $('#output').text(event.data);
-            $('#boat').css({'color':'rgb('+data.colour.join(',')+')'});
-            $('#score').text(data.score);
+            $('#boat').css({'color': 'rgb(' + data.colour.join(',') + ')'});
+            $('#score').text(Number((data.hook_position).toFixed(2)));
+            if (data.event in events) {
+                events[data.event](data);
+            }
         };
         $('div[id^="button-"]').on({
             'touchstart mousedown': function (e) {
                 $(this).find('i').addClass('active');
-                event.stopPropagation();
-                event.preventDefault();
+                e.stopPropagation();
+                e.preventDefault();
                 ws.send($(this).attr('id').substr(7));
             },
             'touchend mouseup': function (e) {
                 $(this).find('i').removeClass('active');
-                event.stopPropagation();
-                event.preventDefault();
+                e.stopPropagation();
+                e.preventDefault();
                 ws.send("stop");
             }
         });
